@@ -1,0 +1,145 @@
+.login-form-screen {
+  min-height: 100vh;
+  width: 100%;
+  background: #dca5be;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 22px 18px;
+  box-sizing: border-box;
+}
+
+.login-form-card {
+  width: min(100%, 390px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #171230;
+  font-family: 'Trebuchet MS', 'Gill Sans', 'Segoe UI', sans-serif;
+  text-align: center;
+}
+
+.login-form-logo {
+  width: 182px;
+  height: 232px;
+  object-fit: contain;
+  margin-bottom: 6px;
+}
+
+.login-form-title {
+  margin: 6px 0 0;
+  font-size: 34px;
+  line-height: 1.05;
+  font-weight: 700;
+}
+
+.login-form-subtitle {
+  margin: 10px 0 0;
+  font-size: 15px;
+  line-height: 1.4;
+  max-width: 290px;
+  opacity: 0.9;
+}
+
+.login-form {
+  margin-top: 30px;
+  width: min(100%, 320px);
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+
+.login-form-label {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.login-form-input {
+  min-height: 48px;
+  border: 2px solid #171230;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 16px;
+  font-family: inherit;
+  color: #171230;
+  background: rgba(255, 255, 255, 0.84);
+  box-sizing: border-box;
+}
+
+.login-form-input::placeholder {
+  color: rgba(23, 18, 48, 0.68);
+}
+
+.login-form-input:focus-visible {
+  outline: 3px solid #f84e87;
+  outline-offset: 1px;
+}
+
+.login-submit-btn {
+  margin-top: 10px;
+  min-height: 52px;
+  border: 0;
+  border-radius: 999px;
+  background: #f84e87;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.login-submit-btn:hover {
+  background: #ef427d;
+}
+
+.login-submit-btn:active {
+  transform: translateY(1px);
+}
+
+.login-submit-btn:focus-visible {
+  outline: 3px solid #171230;
+  outline-offset: 3px;
+}
+
+.login-back-btn {
+  margin-top: 18px;
+  border: 0;
+  background: transparent;
+  color: #171230;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 14px;
+}
+
+.login-back-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.login-back-btn:focus-visible {
+  outline: 3px solid #171230;
+  outline-offset: 3px;
+}
+
+@media (min-width: 700px) {
+  .login-form-logo {
+    width: 216px;
+    height: 274px;
+  }
+
+  .login-form-title {
+    font-size: 42px;
+  }
+
+  .login-form-subtitle {
+    font-size: 18px;
+  }
+
+  .login-form {
+    width: min(100%, 350px);
+  }
+}

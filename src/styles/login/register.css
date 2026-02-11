@@ -1,0 +1,145 @@
+.register-screen {
+  min-height: 100vh;
+  width: 100%;
+  background: #dca5be;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 22px 18px;
+  box-sizing: border-box;
+}
+
+.register-card {
+  width: min(100%, 390px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #171230;
+  font-family: 'Trebuchet MS', 'Gill Sans', 'Segoe UI', sans-serif;
+  text-align: center;
+}
+
+.register-logo {
+  width: 172px;
+  height: 220px;
+  object-fit: contain;
+  margin-bottom: 6px;
+}
+
+.register-title {
+  margin: 4px 0 0;
+  font-size: 34px;
+  line-height: 1.05;
+  font-weight: 700;
+}
+
+.register-subtitle {
+  margin: 10px 0 0;
+  font-size: 15px;
+  line-height: 1.4;
+  max-width: 300px;
+  opacity: 0.9;
+}
+
+.register-form {
+  margin-top: 24px;
+  width: min(100%, 320px);
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+
+.register-label {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.register-input {
+  min-height: 48px;
+  border: 2px solid #171230;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 16px;
+  font-family: inherit;
+  color: #171230;
+  background: rgba(255, 255, 255, 0.84);
+  box-sizing: border-box;
+}
+
+.register-input::placeholder {
+  color: rgba(23, 18, 48, 0.68);
+}
+
+.register-input:focus-visible {
+  outline: 3px solid #f84e87;
+  outline-offset: 1px;
+}
+
+.register-submit-btn {
+  margin-top: 10px;
+  min-height: 52px;
+  border: 0;
+  border-radius: 999px;
+  background: #f84e87;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.register-submit-btn:hover {
+  background: #ef427d;
+}
+
+.register-submit-btn:active {
+  transform: translateY(1px);
+}
+
+.register-submit-btn:focus-visible {
+  outline: 3px solid #171230;
+  outline-offset: 3px;
+}
+
+.register-back-btn {
+  margin-top: 18px;
+  border: 0;
+  background: transparent;
+  color: #171230;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 14px;
+}
+
+.register-back-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.register-back-btn:focus-visible {
+  outline: 3px solid #171230;
+  outline-offset: 3px;
+}
+
+@media (min-width: 700px) {
+  .register-logo {
+    width: 206px;
+    height: 262px;
+  }
+
+  .register-title {
+    font-size: 42px;
+  }
+
+  .register-subtitle {
+    font-size: 18px;
+  }
+
+  .register-form {
+    width: min(100%, 350px);
+  }
+}

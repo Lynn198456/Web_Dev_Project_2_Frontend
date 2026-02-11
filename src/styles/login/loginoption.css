@@ -1,0 +1,191 @@
+.login-screen {
+  min-height: 100vh;
+  width: 100%;
+  background: #dca5be;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 22px 20px 34px;
+  box-sizing: border-box;
+}
+
+.login-card {
+  width: min(100%, 390px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #171230;
+  font-family: 'Trebuchet MS', 'Gill Sans', 'Segoe UI', sans-serif;
+  text-align: center;
+}
+
+.login-logo-icon {
+  width: 190px;
+  height: 242px;
+  object-fit: contain;
+  object-position: center;
+  margin-top: 28px;
+}
+
+.login-brand {
+  margin: 6px 0 0;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: 0.4px;
+  font-weight: 700;
+}
+
+.login-greeting {
+  margin-top: 56px;
+  margin-bottom: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.login-subtitle {
+  margin: 12px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+  max-width: 290px;
+  opacity: 0.9;
+}
+
+.register-btn {
+  margin-top: 64px;
+  width: min(100%, 280px);
+  min-height: 54px;
+  border: 0;
+  border-radius: 28px;
+  background: #f84e87;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 20px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.register-btn-label {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.03em;
+}
+
+.register-btn-arrow {
+  font-size: 30px;
+  line-height: 1;
+  transform: translateY(-2px);
+  font-weight: 700;
+}
+
+.register-btn:hover {
+  background: #ef427d;
+  box-shadow: 0 10px 22px rgba(248, 78, 135, 0.34);
+}
+
+.register-btn:active {
+  transform: translateY(1px);
+}
+
+.register-btn:focus-visible {
+  outline: 3px solid #171230;
+  outline-offset: 3px;
+}
+
+.login-question {
+  margin: 48px 0 0;
+  font-size: 17px;
+  letter-spacing: 0.01em;
+  font-weight: 600;
+}
+
+.login-link-btn {
+  margin-top: 14px;
+  border: 2px solid #f84e87;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #d32f68;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  min-height: 48px;
+  min-width: 180px;
+  padding: 12px 20px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.login-link-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.login-link-btn:active {
+  transform: translateY(1px);
+}
+
+.login-link-btn:focus-visible {
+  outline: 3px solid #171230;
+  outline-offset: 3px;
+}
+
+@media (min-width: 700px) {
+  .login-logo-icon {
+    width: 220px;
+    height: 280px;
+    margin-top: 36px;
+  }
+
+  .login-brand {
+    font-size: 44px;
+  }
+
+  .login-greeting {
+    margin-top: 72px;
+    font-size: 30px;
+  }
+
+  .login-subtitle {
+    margin-top: 14px;
+    max-width: 330px;
+    font-size: 19px;
+  }
+
+  .register-btn {
+    margin-top: 78px;
+    max-width: 320px;
+    min-height: 64px;
+    padding: 16px 24px;
+    border-radius: 34px;
+  }
+
+  .register-btn-label {
+    font-size: 25px;
+  }
+
+  .register-btn-arrow {
+    font-size: 38px;
+  }
+
+  .login-question {
+    margin-top: 62px;
+    font-size: 26px;
+  }
+
+  .login-link-btn {
+    margin-top: 18px;
+    font-size: 22px;
+    min-width: 210px;
+    min-height: 56px;
+  }
+}
