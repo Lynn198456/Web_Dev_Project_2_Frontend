@@ -10,6 +10,24 @@ export default function Register({ onBack }) {
         <p className="register-subtitle">Set up your profile to get started with PawEver.</p>
 
         <form className="register-form" onSubmit={(event) => event.preventDefault()}>
+          <fieldset className="register-role-group">
+            <legend className="register-label">I am registering as</legend>
+            <div className="register-role-options">
+              <label className="register-role-option">
+                <input defaultChecked name="register-role" type="radio" value="pet-owner" />
+                <span>Pet Owner</span>
+              </label>
+              <label className="register-role-option">
+                <input name="register-role" type="radio" value="doctor" />
+                <span>Doctor</span>
+              </label>
+              <label className="register-role-option">
+                <input name="register-role" type="radio" value="staff" />
+                <span>Staff</span>
+              </label>
+            </div>
+          </fieldset>
+
           <label className="register-label" htmlFor="name">
             Full Name
           </label>

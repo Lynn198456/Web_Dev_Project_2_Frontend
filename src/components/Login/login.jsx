@@ -10,6 +10,24 @@ export default function Login({ onBack }) {
         <p className="login-form-subtitle">Welcome back. Enter your account details.</p>
 
         <form className="login-form" onSubmit={(event) => event.preventDefault()}>
+          <fieldset className="login-role-group">
+            <legend className="login-form-label">I am a</legend>
+            <div className="login-role-options">
+              <label className="login-role-option">
+                <input defaultChecked name="login-role" type="radio" value="pet-owner" />
+                <span>Pet Owner</span>
+              </label>
+              <label className="login-role-option">
+                <input name="login-role" type="radio" value="doctor" />
+                <span>Doctor</span>
+              </label>
+              <label className="login-role-option">
+                <input name="login-role" type="radio" value="staff" />
+                <span>Staff</span>
+              </label>
+            </div>
+          </fieldset>
+
           <label className="login-form-label" htmlFor="email">
             Email
           </label>
