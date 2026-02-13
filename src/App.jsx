@@ -3,22 +3,49 @@ import { useState } from 'react'
 import Login from './components/Login/login'
 import LoginOption from './components/Login/loginoption'
 import Register from './components/Login/register'
+import PetOwnerDashboard from './components/PetOwner/dashboard'
 
 export default function App() {
   const [screen, setScreen] = useState('options')
+  const [role, setRole] = useState('pet-owner')
+
+  const goToScreen = (nextScreen) => {
+    setScreen(nextScreen)
+  }
+
+  let currentPage = (
+    <LoginOption onLoginClick={() => goToScreen('login')} onCreateAccountClick={() => goToScreen('register')} />
+  )
 
   if (screen === 'login') {
-    return <Login onBack={() => setScreen('options')} />
+    currentPage = (
+      <Login
+        onBack={() => goToScreen('options')}
+        onContinue={(selectedRole) => {
+          const nextRole = selectedRole || 'pet-owner'
+          setRole(nextRole)
+          goToScreen(nextRole === 'pet-owner' ? 'dashboard' : 'options')
+        }}
+      />
+    )
   }
 
   if (screen === 'register') {
-    return <Register onBack={() => setScreen('options')} />
+    currentPage = (
+      <Register
+        onBack={() => goToScreen('options')}
+        onCreate={(selectedRole) => {
+          const nextRole = selectedRole || 'pet-owner'
+          setRole(nextRole)
+          goToScreen(nextRole === 'pet-owner' ? 'dashboard' : 'options')
+        }}
+      />
+    )
   }
 
-  return (
-    <LoginOption
-      onLoginClick={() => setScreen('login')}
-      onCreateAccountClick={() => setScreen('register')}
-    />
-  )
+  if (screen === 'dashboard') {
+    currentPage = <PetOwnerDashboard role={role} onLogout={() => goToScreen('options')} />
+  }
+
+  return currentPage
 }

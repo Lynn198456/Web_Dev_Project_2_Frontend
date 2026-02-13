@@ -1,0 +1,169 @@
+.po-screen {
+  min-height: 100vh;
+  width: 100%;
+  background: linear-gradient(180deg, #f5eee7 0%, #cfa67a 100%);
+  display: flex;
+  justify-content: center;
+  padding: 22px 14px;
+  box-sizing: border-box;
+}
+
+.po-shell {
+  width: min(100%, 1120px);
+  background: rgba(250, 243, 234, 0.95);
+  border: 2px solid rgba(107, 74, 47, 0.3);
+  border-radius: 22px;
+  box-shadow: 0 18px 32px rgba(107, 74, 47, 0.18);
+  padding: 18px;
+  color: #3b2415;
+  font-family: 'Trebuchet MS', 'Gill Sans', 'Segoe UI', sans-serif;
+}
+
+.po-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.po-kicker {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.po-title {
+  margin: 4px 0 0;
+  font-size: 34px;
+  line-height: 1.05;
+}
+
+.po-logout {
+  min-height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: #8b5e34;
+  color: #fffaf5;
+  font-weight: 700;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.po-nav {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.po-nav-btn {
+  border: 2px solid #6b4a2f;
+  border-radius: 999px;
+  background: rgba(245, 231, 214, 0.92);
+  color: #3b2415;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.po-nav-btn.is-active {
+  background: #8b5e34;
+  border-color: #8b5e34;
+  color: #fffaf5;
+}
+
+.po-content {
+  margin-top: 18px;
+}
+
+.po-content-title {
+  margin: 0;
+  font-size: 24px;
+}
+
+.po-content-subtitle {
+  margin: 8px 0 0;
+  font-size: 15px;
+  opacity: 0.9;
+}
+
+.po-grid {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.po-card {
+  border: 2px solid #6b4a2f;
+  border-radius: 12px;
+  background: rgba(245, 231, 214, 0.9);
+  padding: 12px;
+}
+
+.po-card h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.po-card p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.po-card button {
+  margin-top: 10px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: #8b5e34;
+  color: #fffaf5;
+  font-weight: 700;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.po-empty {
+  margin-top: 18px;
+  border: 2px dashed #6b4a2f;
+  border-radius: 12px;
+  background: rgba(245, 231, 214, 0.9);
+  padding: 14px;
+  font-weight: 700;
+}
+
+@media (min-width: 760px) {
+  .po-shell {
+    padding: 24px;
+  }
+
+  .po-title {
+    font-size: 42px;
+  }
+
+  .po-content-title {
+    font-size: 32px;
+  }
+
+  .po-content-subtitle {
+    font-size: 18px;
+  }
+
+  .po-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .po-card h3 {
+    font-size: 20px;
+  }
+
+  .po-card p {
+    font-size: 15px;
+  }
+}
