@@ -4,6 +4,8 @@ import Login from './components/Login/login'
 import LoginOption from './components/Login/loginoption'
 import Register from './components/Login/register'
 import PetOwnerDashboard from './components/PetOwner/dashboard'
+import DoctorDashboard from './components/Doctor/dashboard'
+import StaffDashboard from './components/Staff/dashboard'
 
 export default function App() {
   const [screen, setScreen] = useState('options')
@@ -24,7 +26,15 @@ export default function App() {
         onContinue={(selectedRole) => {
           const nextRole = selectedRole || 'pet-owner'
           setRole(nextRole)
-          goToScreen(nextRole === 'pet-owner' ? 'dashboard' : 'options')
+          goToScreen(
+            nextRole === 'pet-owner'
+              ? 'dashboard'
+              : nextRole === 'doctor'
+                ? 'doctor-dashboard'
+                : nextRole === 'staff'
+                  ? 'staff-dashboard'
+                  : 'options'
+          )
         }}
       />
     )
@@ -37,7 +47,15 @@ export default function App() {
         onCreate={(selectedRole) => {
           const nextRole = selectedRole || 'pet-owner'
           setRole(nextRole)
-          goToScreen(nextRole === 'pet-owner' ? 'dashboard' : 'options')
+          goToScreen(
+            nextRole === 'pet-owner'
+              ? 'dashboard'
+              : nextRole === 'doctor'
+                ? 'doctor-dashboard'
+                : nextRole === 'staff'
+                  ? 'staff-dashboard'
+                  : 'options'
+          )
         }}
       />
     )
@@ -45,6 +63,14 @@ export default function App() {
 
   if (screen === 'dashboard') {
     currentPage = <PetOwnerDashboard role={role} onLogout={() => goToScreen('options')} />
+  }
+
+  if (screen === 'doctor-dashboard') {
+    currentPage = <DoctorDashboard onLogout={() => goToScreen('options')} />
+  }
+
+  if (screen === 'staff-dashboard') {
+    currentPage = <StaffDashboard onLogout={() => goToScreen('options')} />
   }
 
   return currentPage

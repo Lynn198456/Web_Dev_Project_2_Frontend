@@ -1,0 +1,772 @@
+.dr-screen {
+  min-height: 100vh;
+  width: 100%;
+  background:
+    radial-gradient(circle at 10% 15%, rgba(248, 202, 112, 0.25) 0 110px, transparent 112px),
+    radial-gradient(circle at 95% 90%, rgba(131, 188, 198, 0.24) 0 140px, transparent 142px),
+    linear-gradient(180deg, #e4ecef 0%, #d9e2e6 100%);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.dr-shell {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  background: rgba(247, 250, 251, 0.95);
+  border: 1px solid rgba(39, 87, 95, 0.2);
+  border-radius: 22px;
+  box-shadow: 0 20px 32px rgba(45, 80, 88, 0.18);
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  font-family: 'Trebuchet MS', 'Gill Sans', 'Segoe UI', sans-serif;
+  color: #234146;
+}
+
+.dr-sidebar {
+  background: #f3f7f8;
+  border-radius: 16px;
+  border: 1px solid rgba(66, 106, 114, 0.2);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.dr-sidebar h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.dr-sidebar nav {
+  display: grid;
+  gap: 7px;
+}
+
+.dr-nav-btn {
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #3e5f66;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 10px;
+  cursor: pointer;
+}
+
+.dr-nav-btn:hover {
+  background: rgba(115, 174, 183, 0.2);
+}
+
+.dr-nav-btn.is-active {
+  background: #5f9ca8;
+  color: #fff;
+}
+
+.dr-logout {
+  margin-top: 2px;
+  border: 0;
+  border-radius: 10px;
+  background: #2f5f69;
+  color: #fff;
+  min-height: 36px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dr-main {
+  min-width: 0;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(66, 106, 114, 0.2);
+  padding: 14px;
+}
+
+.dr-header h2 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.dr-header p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: #4a6970;
+}
+
+.dr-grid {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.dr-card {
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 100% 100%, rgba(123, 188, 198, 0.26) 0 80px, transparent 82px),
+    linear-gradient(180deg, #e6f3f6 0%, #d8eaee 100%);
+  border: 1px solid rgba(77, 125, 133, 0.3);
+  padding: 12px;
+}
+
+.dr-card h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.dr-card p {
+  margin: 7px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.dr-count {
+  font-weight: 700;
+  color: #2f5f69;
+}
+
+.dr-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.dr-list li {
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(77, 125, 133, 0.2);
+  padding: 8px 10px;
+  display: grid;
+  gap: 2px;
+}
+
+.dr-list strong {
+  font-size: 12px;
+}
+
+.dr-list span {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.dr-quick-card {
+  grid-column: 1 / -1;
+}
+
+.dr-quick-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dr-quick-actions button {
+  border: 0;
+  border-radius: 999px;
+  background: #2f5f69;
+  color: #fff;
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dr-card button {
+  margin-top: 10px;
+  border: 0;
+  border-radius: 999px;
+  background: #2f5f69;
+  color: #fff;
+  min-height: 33px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dr-appointments {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.dr-appointment-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dr-tab-btn {
+  border: 0;
+  border-radius: 999px;
+  background: #d8eaee;
+  color: #2f5f69;
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dr-tab-btn.is-active {
+  background: #2f5f69;
+  color: #fff;
+}
+
+.dr-filters {
+  display: grid;
+  gap: 10px;
+}
+
+.dr-filters label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #315a63;
+}
+
+.dr-filters input,
+.dr-filters select {
+  border: 1px solid rgba(77, 125, 133, 0.35);
+  border-radius: 8px;
+  background: #f7fbfc;
+  min-height: 34px;
+  padding: 0 10px;
+  font: inherit;
+  color: #234146;
+}
+
+.dr-appointment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.dr-appointment-list li {
+  border-radius: 10px;
+  background: rgba(230, 243, 246, 0.65);
+  border: 1px solid rgba(77, 125, 133, 0.25);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.dr-appointment-list strong {
+  font-size: 13px;
+}
+
+.dr-appointment-list p {
+  margin: 3px 0 0;
+  font-size: 12px;
+}
+
+.dr-status {
+  justify-self: start;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.dr-status-pending {
+  background: #fff2c7;
+  color: #8c6700;
+}
+
+.dr-status-confirmed {
+  background: #d5ecff;
+  color: #1f5d8b;
+}
+
+.dr-status-completed {
+  background: #dff2d4;
+  color: #2e6b2e;
+}
+
+.dr-status-cancelled {
+  background: #ffd9d9;
+  color: #9e2e2e;
+}
+
+.dr-appointment-list button {
+  justify-self: start;
+  border: 0;
+  border-radius: 8px;
+  background: #2f5f69;
+  color: #fff;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dr-consultation {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.dr-info-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.dr-info-grid p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dr-consult-form {
+  display: grid;
+  gap: 10px;
+}
+
+.dr-consult-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dr-consult-form textarea {
+  border: 1px solid rgba(77, 125, 133, 0.35);
+  border-radius: 8px;
+  background: #f7fbfc;
+  color: #234146;
+  font: inherit;
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+
+.dr-mark-group {
+  border: 1px solid rgba(77, 125, 133, 0.35);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.45);
+  margin: 0;
+  padding: 10px;
+}
+
+.dr-mark-group legend {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 6px;
+}
+
+.dr-mark-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.dr-records {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.dr-record-search {
+  margin-top: 10px;
+  border: 1px solid rgba(77, 125, 133, 0.35);
+  border-radius: 8px;
+  background: #f7fbfc;
+  min-height: 36px;
+  padding: 0 10px;
+  font: inherit;
+  color: #234146;
+}
+
+.dr-record-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.dr-record-list li {
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(77, 125, 133, 0.2);
+  padding: 10px;
+}
+
+.dr-record-list p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.dr-record-list p + p {
+  margin-top: 4px;
+}
+
+.dr-record-entry .dr-entry-fields {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.dr-record-entry input,
+.dr-record-entry textarea {
+  border: 1px solid rgba(77, 125, 133, 0.35);
+  border-radius: 8px;
+  background: #f7fbfc;
+  color: #234146;
+  font: inherit;
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+
+.dr-prescriptions {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.dr-prescription-form .dr-entry-fields {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.dr-prescription-form input {
+  border: 1px solid rgba(77, 125, 133, 0.35);
+  border-radius: 8px;
+  background: #f7fbfc;
+  color: #234146;
+  font: inherit;
+  min-height: 36px;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+
+.dr-prescription-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.dr-prescription-list li {
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(77, 125, 133, 0.2);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.dr-prescription-list strong {
+  font-size: 13px;
+}
+
+.dr-prescription-list p {
+  margin: 3px 0 0;
+  font-size: 12px;
+}
+
+.dr-prescription-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dr-prescription-actions button {
+  border: 0;
+  border-radius: 8px;
+  background: #2f5f69;
+  color: #fff;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dr-lab {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.dr-lab-upload .dr-entry-fields {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.dr-lab-upload input[type='text'],
+.dr-lab-upload input[type='file'] {
+  border: 1px solid rgba(77, 125, 133, 0.35);
+  border-radius: 8px;
+  background: #f7fbfc;
+  color: #234146;
+  font: inherit;
+  min-height: 36px;
+  padding: 7px 10px;
+  box-sizing: border-box;
+}
+
+.dr-attachment-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.dr-attachment-list li {
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(77, 125, 133, 0.2);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.dr-attachment-list strong {
+  font-size: 13px;
+}
+
+.dr-attachment-list p {
+  margin: 3px 0 0;
+  font-size: 12px;
+}
+
+.dr-attachment-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dr-attachment-actions button {
+  border: 0;
+  border-radius: 8px;
+  background: #2f5f69;
+  color: #fff;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dr-schedule {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.dr-simple-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.dr-simple-list li {
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(77, 125, 133, 0.2);
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.dr-working-hours .dr-hours-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.dr-working-hours label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #315a63;
+}
+
+.dr-working-hours input {
+  border: 1px solid rgba(77, 125, 133, 0.35);
+  border-radius: 8px;
+  background: #f7fbfc;
+  min-height: 36px;
+  padding: 0 10px;
+  font: inherit;
+  color: #234146;
+}
+
+.dr-profile-settings {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.dr-profile-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.dr-photo-preview {
+  margin-top: 10px;
+  width: 130px;
+  height: 130px;
+  border-radius: 14px;
+  border: 1px solid rgba(77, 125, 133, 0.35);
+  background: rgba(247, 251, 252, 0.85);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.dr-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dr-photo-preview span {
+  font-size: 12px;
+  color: #4f6d74;
+  text-align: center;
+  padding: 0 10px;
+}
+
+.dr-profile-grid label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #315a63;
+}
+
+.dr-profile-grid input {
+  border: 1px solid rgba(77, 125, 133, 0.35);
+  border-radius: 8px;
+  background: #f7fbfc;
+  min-height: 36px;
+  padding: 0 10px;
+  font: inherit;
+  color: #234146;
+}
+
+.dr-security-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dr-danger-btn {
+  background: #8e2f2f !important;
+}
+
+.dr-2fa-toggle {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (min-width: 900px) {
+  .dr-shell {
+    grid-template-columns: 290px minmax(0, 1fr);
+    padding: 20px;
+  }
+
+  .dr-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dr-filters {
+    grid-template-columns: repeat(2, minmax(0, 220px));
+  }
+
+  .dr-appointment-list li {
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+  }
+
+  .dr-appointment-list button {
+    justify-self: end;
+  }
+
+  .dr-info-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 14px;
+  }
+
+  .dr-records {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dr-record-entry {
+    grid-column: 1 / -1;
+  }
+
+  .dr-record-entry .dr-entry-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dr-prescriptions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dr-prescription-form .dr-entry-fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dr-prescription-list li {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  .dr-lab {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dr-lab-upload .dr-entry-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dr-attachment-list li {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  .dr-schedule {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dr-working-hours {
+    grid-column: 1 / -1;
+  }
+
+  .dr-working-hours .dr-hours-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dr-profile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dr-profile-grid .dr-full {
+    grid-column: 1 / -1;
+  }
+}

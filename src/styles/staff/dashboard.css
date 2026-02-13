@@ -1,0 +1,258 @@
+.st-screen {
+  min-height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(159, 198, 121, 0.22) 0 120px, transparent 122px),
+    radial-gradient(circle at 94% 88%, rgba(92, 148, 164, 0.22) 0 140px, transparent 142px),
+    linear-gradient(180deg, #e8efeb 0%, #dde5e2 100%);
+}
+
+.st-shell {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  background: rgba(250, 252, 251, 0.95);
+  border: 1px solid rgba(65, 93, 88, 0.2);
+  border-radius: 22px;
+  box-shadow: 0 20px 32px rgba(56, 84, 78, 0.16);
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  font-family: 'Trebuchet MS', 'Gill Sans', 'Segoe UI', sans-serif;
+  color: #294741;
+}
+
+.st-sidebar {
+  background: #f5f9f7;
+  border-radius: 16px;
+  border: 1px solid rgba(83, 119, 110, 0.2);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.st-sidebar h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.st-sidebar nav {
+  display: grid;
+  gap: 7px;
+}
+
+.st-nav-btn {
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #3d5e56;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 10px;
+  cursor: pointer;
+}
+
+.st-nav-btn:hover {
+  background: rgba(138, 185, 170, 0.26);
+}
+
+.st-nav-btn.is-active {
+  background: #5e9086;
+  color: #fff;
+}
+
+.st-logout {
+  border: 0;
+  border-radius: 10px;
+  background: #2f5d54;
+  color: #fff;
+  min-height: 36px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.st-main {
+  min-width: 0;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(83, 119, 110, 0.2);
+  padding: 14px;
+}
+
+.st-header h2 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.st-header p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: #4b6a62;
+}
+
+.st-grid {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.st-card {
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 100% 100%, rgba(148, 192, 176, 0.22) 0 80px, transparent 82px),
+    linear-gradient(180deg, #ebf6f1 0%, #dceee7 100%);
+  border: 1px solid rgba(94, 142, 131, 0.28);
+  padding: 12px;
+}
+
+.st-card h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.st-card p {
+  margin: 7px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.st-metric-value {
+  margin-top: 10px !important;
+  font-size: 30px !important;
+  line-height: 1;
+  font-weight: 800;
+  color: #2f5d54;
+}
+
+.st-quick-card {
+  grid-column: 1 / -1;
+}
+
+.st-quick-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.st-quick-actions button {
+  border: 0;
+  border-radius: 999px;
+  background: #2f5d54;
+  color: #fff;
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.st-appointments {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.st-plain-btn {
+  margin-top: 10px;
+  border: 0;
+  border-radius: 999px;
+  background: #2f5d54;
+  color: #fff;
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.st-filters {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.st-filters label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #3f6259;
+}
+
+.st-filters input,
+.st-filters select {
+  border: 1px solid rgba(94, 142, 131, 0.35);
+  border-radius: 8px;
+  background: #f5faf8;
+  min-height: 34px;
+  padding: 0 10px;
+  font: inherit;
+  color: #294741;
+}
+
+.st-appointment-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.st-appointment-list li {
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(94, 142, 131, 0.22);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.st-appointment-list strong {
+  font-size: 13px;
+}
+
+.st-appointment-list p {
+  margin: 3px 0 0;
+  font-size: 12px;
+}
+
+.st-appointment-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.st-appointment-actions button {
+  border: 0;
+  border-radius: 8px;
+  background: #2f5d54;
+  color: #fff;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (min-width: 900px) {
+  .st-shell {
+    grid-template-columns: 290px minmax(0, 1fr);
+    padding: 18px;
+  }
+
+  .st-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .st-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .st-appointment-list li {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+}
