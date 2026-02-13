@@ -1,12 +1,42 @@
+import { useState } from 'react'
 import '../../styles/login/register.css'
 import logoImage from '../../../images/Web_Logo.png'
+import { registerUser } from '../../lib/api'
 
 export default function Register({ onBack, onCreate }) {
-  const handleSubmit = (event) => {
+  const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleSubmit = async (event) => {
     event.preventDefault()
+
+    if (isSubmitting) {
+      return
+    }
+
     const formData = new FormData(event.currentTarget)
     const role = formData.get('register-role')
-    onCreate(role)
+    const name = String(formData.get('name') || '').trim()
+    const email = String(formData.get('email') || '').trim()
+    const password = String(formData.get('password') || '')
+    const confirmPassword = String(formData.get('confirmPassword') || '')
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    try {
+      setError('')
+      setIsSubmitting(true)
+
+      const response = await registerUser({ name, email, password, role })
+      onCreate(response?.user?.role || role)
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -41,6 +71,7 @@ export default function Register({ onBack, onCreate }) {
           <input
             className="register-input"
             id="name"
+            name="name"
             type="text"
             placeholder="Enter your full name"
             autoComplete="name"
@@ -53,6 +84,7 @@ export default function Register({ onBack, onCreate }) {
           <input
             className="register-input"
             id="register-email"
+            name="email"
             type="email"
             placeholder="you@example.com"
             autoComplete="email"
@@ -65,6 +97,7 @@ export default function Register({ onBack, onCreate }) {
           <input
             className="register-input"
             id="register-password"
+            name="password"
             type="password"
             placeholder="Create a password"
             autoComplete="new-password"
@@ -77,6 +110,7 @@ export default function Register({ onBack, onCreate }) {
           <input
             className="register-input"
             id="confirm-password"
+            name="confirmPassword"
             type="password"
             placeholder="Repeat your password"
             autoComplete="new-password"
@@ -88,9 +122,10 @@ export default function Register({ onBack, onCreate }) {
             <span>I agree to the terms and privacy policy.</span>
           </label>
 
-          <button className="register-submit-btn" type="submit">
-            Create Account
+          <button className="register-submit-btn" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Creating account...' : 'Create Account'}
           </button>
+          {error ? <p className="form-status-error">{error}</p> : null}
           <p className="register-form-note">You can update your profile and pet details any time.</p>
         </form>
 

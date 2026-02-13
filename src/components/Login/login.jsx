@@ -1,12 +1,35 @@
+import { useState } from 'react'
 import '../../styles/login/login.css'
 import logoImage from '../../../images/Web_Logo.png'
+import { loginUser } from '../../lib/api'
 
 export default function Login({ onBack, onContinue }) {
-  const handleSubmit = (event) => {
+  const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleSubmit = async (event) => {
     event.preventDefault()
+
+    if (isSubmitting) {
+      return
+    }
+
     const formData = new FormData(event.currentTarget)
     const role = formData.get('login-role')
-    onContinue(role)
+    const email = String(formData.get('email') || '').trim()
+    const password = String(formData.get('password') || '')
+
+    try {
+      setError('')
+      setIsSubmitting(true)
+
+      const response = await loginUser({ email, password, role })
+      onContinue(response?.user?.role || role)
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -41,6 +64,7 @@ export default function Login({ onBack, onContinue }) {
           <input
             className="login-form-input"
             id="email"
+            name="email"
             type="email"
             placeholder="you@example.com"
             autoComplete="email"
@@ -53,6 +77,7 @@ export default function Login({ onBack, onContinue }) {
           <input
             className="login-form-input"
             id="password"
+            name="password"
             type="password"
             placeholder="Enter your password"
             autoComplete="current-password"
@@ -69,9 +94,10 @@ export default function Login({ onBack, onContinue }) {
             </button>
           </div>
 
-          <button className="login-submit-btn" type="submit">
-            Continue
+          <button className="login-submit-btn" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Logging in...' : 'Continue'}
           </button>
+          {error ? <p className="form-status-error">{error}</p> : null}
           <p className="login-form-note">Secure login protected with encrypted sessions.</p>
         </form>
 
