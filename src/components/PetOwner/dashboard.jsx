@@ -223,7 +223,7 @@ function MedicalRecordsPage() {
   )
 }
 
-function ProfilePage({ onLogout }) {
+function ProfilePage() {
   return (
     <section className="po-mypets">
       <article className="po-card">
@@ -253,15 +253,6 @@ function ProfilePage({ onLogout }) {
               <p>Choose reminders for appointments, vaccines, and updates.</p>
             </div>
             <button type="button">Manage</button>
-          </li>
-          <li>
-            <div>
-              <h4>Logout</h4>
-              <p>Sign out from your account safely.</p>
-            </div>
-            <button type="button" className="po-profile-logout-btn" onClick={onLogout}>
-              Logout
-            </button>
           </li>
         </ul>
       </article>
@@ -314,8 +305,7 @@ export default function PetOwnerDashboard({ role, onLogout }) {
                 Add A Pet
               </button>
               <button className="po-profile" type="button" onClick={onLogout}>
-                <span>Back</span>
-                <strong>Jonathan Smith</strong>
+                <strong>Logout</strong>
               </button>
             </div>
 
@@ -329,7 +319,7 @@ export default function PetOwnerDashboard({ role, onLogout }) {
               ) : activePage === 'Medical Records' ? (
                 <MedicalRecordsPage />
               ) : activePage === 'Profile' ? (
-                <ProfilePage onLogout={onLogout} />
+                <ProfilePage />
               ) : (
                 <section className="po-placeholder">
                   <h2>{activePage}</h2>
