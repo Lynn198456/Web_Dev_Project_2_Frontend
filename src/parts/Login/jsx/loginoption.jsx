@@ -1,5 +1,5 @@
-import '../../styles/login/loginoption.css'
-import logoImage from '../../../images/Web_Logo.png'
+import '../css/loginoption.css'
+import logoImage from '../../../../images/Web_Logo.png'
 
 export default function LoginOption({ onLoginClick, onCreateAccountClick }) {
   return (

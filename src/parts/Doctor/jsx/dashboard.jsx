@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import '../../styles/doctor/dashboard.css'
+import '../css/dashboard.css'
 
 const DOCTOR_PAGES = [
   'Doctor Dashboard',

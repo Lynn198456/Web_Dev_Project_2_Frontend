@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import '../../styles/petowner/dashboard.css'
+import '../css/dashboard.css'
 
 const SIDEBAR_ITEMS = [
   { id: 'Dashboard', label: 'Dashboard', icon: '🏠' },

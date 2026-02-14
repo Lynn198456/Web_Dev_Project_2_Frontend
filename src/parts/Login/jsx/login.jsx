@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import '../../styles/login/login.css'
-import logoImage from '../../../images/Web_Logo.png'
-import { loginUser } from '../../lib/api'
+import '../css/login.css'
+import logoImage from '../../../../images/Web_Logo.png'
+import { loginUser } from '../../../lib/api'
 
 export default function Login({ onBack, onContinue }) {
   const [error, setError] = useState('')

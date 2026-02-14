@@ -1,11 +1,11 @@
 import './App.css'
 import { useState } from 'react'
-import Login from './components/Login/login'
-import LoginOption from './components/Login/loginoption'
-import Register from './components/Login/register'
-import PetOwnerDashboard from './components/PetOwner/dashboard'
-import DoctorDashboard from './components/Doctor/dashboard'
-import StaffDashboard from './components/Staff/dashboard'
+import Login from './parts/Login/jsx/login'
+import LoginOption from './parts/Login/jsx/loginoption'
+import Register from './parts/Login/jsx/register'
+import PetOwnerDashboard from './parts/PetOwner/jsx/dashboard'
+import DoctorDashboard from './parts/Doctor/jsx/dashboard'
+import StaffDashboard from './parts/Staff/jsx/dashboard'
 
 export default function App() {
   const [screen, setScreen] = useState('options')

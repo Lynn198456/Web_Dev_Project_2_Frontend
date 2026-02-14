@@ -1,10 +1,13 @@
 import { useState } from 'react'
-import '../../styles/staff/dashboard.css'
+import '../css/dashboard.css'
 
 const STAFF_PAGES = [
   'Dashboard',
   'Appointment Management',
   'Pet Owner Management',
+  'Pet Records',
+  'Doctor Schedule Management',
+  'Reports & Analytics',
   'Billing & Payments',
   'Profile',
 ]
@@ -30,6 +33,33 @@ const STAFF_CONTENT = {
       { title: 'Owner Profiles', text: 'Update contact details and account status.' },
       { title: 'Pet Records', text: 'Review linked pet details per owner.' },
       { title: 'Verification', text: 'Resolve duplicate or incomplete records.' },
+    ],
+  },
+  'Pet Records': {
+    subtitle: 'View and manage registered pet information and records.',
+    cards: [
+      { title: 'All Pets', text: 'Browse all registered pets and owner mapping.' },
+      { title: 'Pet Profile Updates', text: 'Edit breed, age, weight, and vaccine details.' },
+      { title: 'Record Validation', text: 'Resolve duplicate pet records and missing fields.' },
+      { title: 'Medical Snapshot', text: 'Quick view of recent diagnosis and vaccine status.' },
+    ],
+  },
+  'Doctor Schedule Management': {
+    subtitle: 'Manage doctor shifts, leave blocks, and availability.',
+    cards: [
+      { title: 'Shift Planner', text: 'Assign doctors to clinic shift slots.' },
+      { title: 'Leave Requests', text: 'Review and approve leave submissions.' },
+      { title: 'Availability Calendar', text: 'Monitor available and blocked consultation hours.' },
+      { title: 'Coverage Alerts', text: 'Identify overlapping or uncovered shifts.' },
+    ],
+  },
+  'Reports & Analytics': {
+    subtitle: 'Track operational metrics and clinic performance reports.',
+    cards: [
+      { title: 'Daily Summary', text: 'Appointments, walk-ins, and completed visits.' },
+      { title: 'Revenue Trends', text: 'Daily and weekly billing and collection insights.' },
+      { title: 'Doctor Performance', text: 'Consultation load and completion metrics.' },
+      { title: 'Export Reports', text: 'Download analytics in CSV/PDF format.' },
     ],
   },
   'Billing & Payments': {
@@ -71,6 +101,39 @@ const PET_OWNERS = [
   { id: 'OWN-1001', name: 'Jonathan Smith', phone: '+1 (555) 222-9011', pets: 2, status: 'Active' },
   { id: 'OWN-1002', name: 'Emma Davis', phone: '+1 (555) 103-7724', pets: 1, status: 'Active' },
   { id: 'OWN-1003', name: 'Noah Patel', phone: '+1 (555) 804-6652', pets: 3, status: 'Active' },
+]
+
+const STAFF_PET_RECORDS = [
+  {
+    id: 'PET-1001',
+    name: 'Bella',
+    weight: '24 kg',
+    vaccinationDate: '2026-03-18',
+    history: 'Regular wellness check completed. Vaccination up to date.',
+  },
+  {
+    id: 'PET-1002',
+    name: 'Max',
+    weight: '7 kg',
+    vaccinationDate: '2026-03-22',
+    history: 'Follow-up visit done. Weight and vaccine schedule reviewed.',
+  },
+]
+
+const DOCTOR_AVAILABILITY = [
+  { doctor: 'Dr. Sarah Khan', slot: '09:00 AM - 05:00 PM', status: 'Available' },
+  { doctor: 'Dr. Michael Reed', slot: '10:00 AM - 06:00 PM', status: 'Available' },
+  { doctor: 'Dr. Olivia Grant', slot: '09:30 AM - 03:30 PM', status: 'Partially Available' },
+]
+
+const EMERGENCY_SLOTS = ['11:30 AM - 12:00 PM (Dr. Sarah Khan)', '04:30 PM - 05:00 PM (Dr. Michael Reed)']
+
+const STAFF_REPORT_METRICS = [
+  { title: 'Daily Income', value: '$2,450', note: 'Today collected amount' },
+  { title: 'Monthly Income', value: '$58,920', note: 'Current month total' },
+  { title: 'Most Visited Doctor', value: 'Dr. Sarah Khan', note: 'Highest appointment count' },
+  { title: 'Most Common Pet Illness', value: 'Skin Allergy', note: 'Top diagnosis trend' },
+  { title: 'Total Appointments Per Month', value: '512', note: 'Appointments this month' },
 ]
 
 export default function StaffDashboard({ onLogout }) {
@@ -242,6 +305,165 @@ export default function StaffDashboard({ onLogout }) {
                   ))}
                 </ul>
               </article>
+            </div>
+          ) : activePage === 'Pet Records' ? (
+            <div className="st-appointments">
+              <article className="st-card">
+                <h3>Add Pet Basic Information</h3>
+                <div className="st-filters">
+                  <label>
+                    Pet ID
+                    <input type="text" placeholder="Enter pet ID" />
+                  </label>
+                  <label>
+                    Pet Name
+                    <input type="text" placeholder="Enter pet name" />
+                  </label>
+                  <label>
+                    Breed
+                    <input type="text" placeholder="Enter breed" />
+                  </label>
+                </div>
+                <button type="button" className="st-plain-btn">
+                  Add Pet Basic Information
+                </button>
+              </article>
+
+              <article className="st-card">
+                <h3>Pet Records</h3>
+                <ul className="st-appointment-list">
+                  {STAFF_PET_RECORDS.map((pet) => (
+                    <li key={pet.id}>
+                      <div>
+                        <strong>
+                          {pet.id} - {pet.name}
+                        </strong>
+                        <p>Weight: {pet.weight}</p>
+                        <p>Vaccination Date: {pet.vaccinationDate}</p>
+                        <p>History (Read-only): {pet.history}</p>
+                      </div>
+                      <div className="st-appointment-actions">
+                        <button type="button">Update Weight</button>
+                        <button type="button">Update Vaccination Date</button>
+                        <button type="button">Upload Documents</button>
+                        <button type="button">View Pet History</button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+
+              <article className="st-card st-restriction-card">
+                <h3>Access Restriction</h3>
+                <p>Staff cannot add diagnosis or prescription. These actions are doctor-only permissions.</p>
+              </article>
+            </div>
+          ) : activePage === 'Doctor Schedule Management' ? (
+            <div className="st-appointments">
+              <article className="st-card">
+                <h3>View Doctor Availability</h3>
+                <ul className="st-appointment-list">
+                  {DOCTOR_AVAILABILITY.map((entry) => (
+                    <li key={`${entry.doctor}-${entry.slot}`}>
+                      <div>
+                        <strong>{entry.doctor}</strong>
+                        <p>{entry.slot}</p>
+                        <p>Status: {entry.status}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+
+              <article className="st-card">
+                <h3>Block Unavailable Time</h3>
+                <div className="st-filters">
+                  <label>
+                    Doctor
+                    <select>
+                      <option>Dr. Sarah Khan</option>
+                      <option>Dr. Michael Reed</option>
+                      <option>Dr. Olivia Grant</option>
+                    </select>
+                  </label>
+                  <label>
+                    Date
+                    <input type="date" />
+                  </label>
+                  <label>
+                    Time Range
+                    <input type="text" placeholder="e.g. 01:00 PM - 02:00 PM" />
+                  </label>
+                </div>
+                <button type="button" className="st-plain-btn">
+                  Block Time
+                </button>
+              </article>
+
+              <article className="st-card">
+                <h3>Adjust Clinic Hours</h3>
+                <div className="st-filters">
+                  <label>
+                    Monday - Friday
+                    <input type="text" defaultValue="09:00 AM - 06:00 PM" />
+                  </label>
+                  <label>
+                    Saturday
+                    <input type="text" defaultValue="10:00 AM - 03:00 PM" />
+                  </label>
+                  <label>
+                    Sunday
+                    <input type="text" defaultValue="Closed" />
+                  </label>
+                </div>
+                <button type="button" className="st-plain-btn">
+                  Save Clinic Hours
+                </button>
+              </article>
+
+              <article className="st-card">
+                <h3>Assign Emergency Slots</h3>
+                <div className="st-filters">
+                  <label>
+                    Doctor
+                    <select>
+                      <option>Dr. Sarah Khan</option>
+                      <option>Dr. Michael Reed</option>
+                      <option>Dr. Olivia Grant</option>
+                    </select>
+                  </label>
+                  <label>
+                    Date
+                    <input type="date" />
+                  </label>
+                  <label>
+                    Slot Time
+                    <input type="text" placeholder="e.g. 05:30 PM - 06:00 PM" />
+                  </label>
+                </div>
+                <button type="button" className="st-plain-btn">
+                  Assign Emergency Slot
+                </button>
+                <ul className="st-appointment-list">
+                  {EMERGENCY_SLOTS.map((slot) => (
+                    <li key={slot}>
+                      <div>
+                        <strong>{slot}</strong>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            </div>
+          ) : activePage === 'Reports & Analytics' ? (
+            <div className="st-grid">
+              {STAFF_REPORT_METRICS.map((item) => (
+                <article key={item.title} className="st-card st-metric-card">
+                  <h3>{item.title}</h3>
+                  <p className="st-metric-value">{item.value}</p>
+                  <p>{item.note}</p>
+                </article>
+              ))}
             </div>
           ) : (
             <div className="st-grid">

@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import '../../styles/login/register.css'
-import logoImage from '../../../images/Web_Logo.png'
-import { registerUser } from '../../lib/api'
+import '../css/register.css'
+import logoImage from '../../../../images/Web_Logo.png'
+import { registerUser } from '../../../lib/api'
 
 export default function Register({ onBack, onCreate }) {
   const [error, setError] = useState('')
