@@ -90,6 +90,13 @@ const STAFF_DASHBOARD_METRICS = [
   { title: 'Payment Summary (Today)', value: '$2,450', note: 'Collected payments' },
 ]
 
+const STAFF_QUICK_ACTIONS = [
+  { title: 'Add Appointment', text: 'Create a new scheduled appointment.' },
+  { title: 'Register Pet Owner', text: 'Add a new owner account with contact details.' },
+  { title: 'Add Walk-in', text: 'Register walk-in patient quickly at front desk.' },
+  { title: 'Generate Invoice', text: 'Create bill and move to payment flow.' },
+]
+
 const STAFF_APPOINTMENTS = [
   { id: 'AP-1001', date: '2026-03-18', doctor: 'Dr. Sarah Khan', status: 'Pending', petOwner: 'Jonathan Smith' },
   { id: 'AP-1002', date: '2026-03-18', doctor: 'Dr. Michael Reed', status: 'Confirmed', petOwner: 'Emma Davis' },
@@ -136,12 +143,35 @@ const STAFF_REPORT_METRICS = [
   { title: 'Total Appointments Per Month', value: '512', note: 'Appointments this month' },
 ]
 
+const REPORT_TREND_ROWS = [
+  { period: 'Week 1', income: '$13,200', appointments: 118, topDoctor: 'Dr. Sarah Khan' },
+  { period: 'Week 2', income: '$14,680', appointments: 124, topDoctor: 'Dr. Michael Reed' },
+  { period: 'Week 3', income: '$15,140', appointments: 131, topDoctor: 'Dr. Sarah Khan' },
+  { period: 'Week 4', income: '$15,900', appointments: 139, topDoctor: 'Dr. Sarah Khan' },
+]
+
+const BILLING_SUMMARY = [
+  { title: 'Invoices Today', value: '14' },
+  { title: 'Collected Today', value: '$2,450' },
+  { title: 'Pending Payments', value: '$620' },
+]
+
+const PAYMENT_HISTORY = [
+  { invoice: 'INV-3001', owner: 'Jonathan Smith', pet: 'Bella', amount: '$180', method: 'Card', status: 'Paid' },
+  { invoice: 'INV-3002', owner: 'Emma Davis', pet: 'Max', amount: '$95', method: 'Cash', status: 'Paid' },
+  { invoice: 'INV-3003', owner: 'Noah Patel', pet: 'Luna', amount: '$140', method: 'UPI', status: 'Pending' },
+  { invoice: 'INV-3004', owner: 'Sophia Lee', pet: 'Rocky', amount: '$220', method: 'Card', status: 'Paid' },
+]
+
 export default function StaffDashboard({ onLogout }) {
   const [activePage, setActivePage] = useState('Dashboard')
   const [filterDate, setFilterDate] = useState('')
   const [filterDoctor, setFilterDoctor] = useState('All')
   const [filterStatus, setFilterStatus] = useState('All')
   const activeContent = STAFF_CONTENT[activePage] || STAFF_CONTENT.Dashboard
+  const todayDashboardDate = '2026-03-18'
+  const todayAppointments = STAFF_APPOINTMENTS.filter((item) => item.date === todayDashboardDate)
+  const pendingDashboardAppointments = todayAppointments.filter((item) => item.status === 'Pending')
   const filteredAppointments = STAFF_APPOINTMENTS.filter((item) => {
     const dateMatch = !filterDate || item.date === filterDate
     const doctorMatch = filterDoctor === 'All' || item.doctor === filterDoctor
@@ -178,21 +208,65 @@ export default function StaffDashboard({ onLogout }) {
           </header>
 
           {activePage === 'Dashboard' ? (
-            <div className="st-grid">
-              {STAFF_DASHBOARD_METRICS.map((item) => (
-                <article key={item.title} className="st-card st-metric-card">
-                  <h3>{item.title}</h3>
-                  <p className="st-metric-value">{item.value}</p>
-                  <p>{item.note}</p>
-                </article>
-              ))}
-
-              <article className="st-card st-quick-card">
-                <h3>Quick Buttons</h3>
-                <div className="st-quick-actions">
-                  <button type="button">Add Appointment</button>
-                  <button type="button">Register Pet Owner</button>
+            <div className="st-dashboard-layout">
+              <article className="st-card st-quick-overview">
+                <h3>At a Glance</h3>
+                <div className="st-dashboard-metrics">
+                  {STAFF_DASHBOARD_METRICS.map((item) => (
+                    <div key={item.title} className="st-dashboard-metric">
+                      <p>{item.title}</p>
+                      <strong>{item.value}</strong>
+                      <span>{item.note}</span>
+                    </div>
+                  ))}
                 </div>
+              </article>
+
+              <article className="st-card">
+                <h3>Quick Actions</h3>
+                <div className="st-dashboard-actions">
+                  {STAFF_QUICK_ACTIONS.map((item) => (
+                    <button key={item.title} type="button" className="st-action-card">
+                      <strong>{item.title}</strong>
+                      <span>{item.text}</span>
+                    </button>
+                  ))}
+                </div>
+              </article>
+
+              <article className="st-card">
+                <h3>Today’s Appointments</h3>
+                <ul className="st-dashboard-list">
+                  {todayAppointments.map((item) => (
+                    <li key={item.id}>
+                      <div>
+                        <strong>{item.id}</strong>
+                        <p>
+                          {item.petOwner} | {item.doctor}
+                        </p>
+                      </div>
+                      <span className={`st-history-status st-history-${item.status.toLowerCase()}`}>{item.status}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+
+              <article className="st-card">
+                <h3>Pending Requests</h3>
+                <p>{pendingDashboardAppointments.length} request(s) need attention.</p>
+                <ul className="st-dashboard-list">
+                  {pendingDashboardAppointments.map((item) => (
+                    <li key={`${item.id}-pending`}>
+                      <div>
+                        <strong>{item.id}</strong>
+                        <p>
+                          {item.petOwner} requested confirmation
+                        </p>
+                      </div>
+                      <button type="button">Review</button>
+                    </li>
+                  ))}
+                </ul>
               </article>
             </div>
           ) : activePage === 'Appointment Management' ? (
@@ -455,15 +529,288 @@ export default function StaffDashboard({ onLogout }) {
                 </ul>
               </article>
             </div>
+          ) : activePage === 'Profile' ? (
+            <div className="st-profile-layout">
+              <article className="st-card st-profile-summary">
+                <div className="st-profile-avatar" aria-hidden="true">
+                  SK
+                </div>
+                <div className="st-profile-meta">
+                  <h3>Sarah Kim</h3>
+                  <p>Front Desk Staff</p>
+                  <p>Employee ID: STF-2041</p>
+                </div>
+                <div className="st-profile-badges">
+                  <span>On Duty</span>
+                  <span>Morning Shift</span>
+                </div>
+              </article>
+
+              <article className="st-card">
+                <h3>Personal Information</h3>
+                <div className="st-profile-form">
+                  <label>
+                    Full Name
+                    <input type="text" defaultValue="Sarah Kim" />
+                  </label>
+                  <label>
+                    Phone Number
+                    <input type="tel" defaultValue="+1 (555) 771-2204" />
+                  </label>
+                  <label>
+                    Email Address
+                    <input type="email" defaultValue="sarah.kim@pawever.com" />
+                  </label>
+                  <label>
+                    Role
+                    <input type="text" defaultValue="Front Desk Staff" />
+                  </label>
+                  <label className="st-profile-full">
+                    Address
+                    <input type="text" defaultValue="245 Market Street, San Francisco, CA" />
+                  </label>
+                </div>
+                <button type="button" className="st-plain-btn">
+                  Save Profile Changes
+                </button>
+              </article>
+
+              <article className="st-card">
+                <h3>Notification Preferences</h3>
+                <p>Choose which updates you want to receive.</p>
+                <div className="st-toggle-list">
+                  <label>
+                    <input type="checkbox" defaultChecked />
+                    Appointment request alerts
+                  </label>
+                  <label>
+                    <input type="checkbox" defaultChecked />
+                    Payment confirmation alerts
+                  </label>
+                  <label>
+                    <input type="checkbox" defaultChecked />
+                    Doctor schedule changes
+                  </label>
+                  <label>
+                    <input type="checkbox" />
+                    Weekly performance summary
+                  </label>
+                </div>
+              </article>
+
+              <article className="st-card">
+                <h3>Security & Account</h3>
+                <div className="st-profile-actions">
+                  <button type="button">Change Password</button>
+                  <button type="button">Enable Two-Factor Authentication</button>
+                  <button type="button">View Login Activity</button>
+                </div>
+                <button type="button" className="st-danger-btn">
+                  Deactivate Account
+                </button>
+              </article>
+            </div>
+          ) : activePage === 'Billing & Payments' ? (
+            <div className="st-billing-layout">
+              <article className="st-card st-billing-summary">
+                {BILLING_SUMMARY.map((item) => (
+                  <div key={item.title} className="st-billing-metric">
+                    <p>{item.title}</p>
+                    <strong>{item.value}</strong>
+                  </div>
+                ))}
+              </article>
+
+              <article className="st-card">
+                <h3>Generate Invoice</h3>
+                <div className="st-profile-form">
+                  <label>
+                    Invoice ID
+                    <input type="text" defaultValue="INV-3010" />
+                  </label>
+                  <label>
+                    Appointment ID
+                    <input type="text" placeholder="Enter appointment ID" />
+                  </label>
+                  <label>
+                    Pet Owner Name
+                    <input type="text" placeholder="Enter owner name" />
+                  </label>
+                  <label>
+                    Pet Name
+                    <input type="text" placeholder="Enter pet name" />
+                  </label>
+                </div>
+              </article>
+
+              <article className="st-card">
+                <h3>Charges</h3>
+                <div className="st-charge-grid">
+                  <label>
+                    Consultation Fee
+                    <input type="number" placeholder="0.00" />
+                  </label>
+                  <label>
+                    Service Charges
+                    <input type="number" placeholder="0.00" />
+                  </label>
+                  <label>
+                    Medicine Charges
+                    <input type="number" placeholder="0.00" />
+                  </label>
+                  <label>
+                    Lab Charges
+                    <input type="number" placeholder="0.00" />
+                  </label>
+                </div>
+                <div className="st-billing-total">
+                  <span>Total Amount</span>
+                  <strong>$0.00</strong>
+                </div>
+              </article>
+
+              <article className="st-card">
+                <h3>Record Payment</h3>
+                <div className="st-profile-form">
+                  <label>
+                    Payment Method
+                    <select>
+                      <option>Card</option>
+                      <option>Cash</option>
+                      <option>UPI</option>
+                      <option>Bank Transfer</option>
+                    </select>
+                  </label>
+                  <label>
+                    Payment Date
+                    <input type="date" />
+                  </label>
+                  <label>
+                    Reference Number
+                    <input type="text" placeholder="Optional reference ID" />
+                  </label>
+                  <label>
+                    Payment Status
+                    <select>
+                      <option>Paid</option>
+                      <option>Pending</option>
+                      <option>Failed</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="st-billing-actions">
+                  <button type="button">Generate Invoice</button>
+                  <button type="button">Record Payment</button>
+                  <button type="button">Print Receipt</button>
+                </div>
+              </article>
+
+              <article className="st-card st-history-card">
+                <h3>Payment History</h3>
+                <ul className="st-history-list">
+                  {PAYMENT_HISTORY.map((item) => (
+                    <li key={item.invoice}>
+                      <div>
+                        <strong>{item.invoice}</strong>
+                        <p>
+                          {item.owner} | {item.pet}
+                        </p>
+                      </div>
+                      <span>{item.amount}</span>
+                      <span>{item.method}</span>
+                      <span className={`st-history-status st-history-${item.status.toLowerCase()}`}>{item.status}</span>
+                      <button type="button">View</button>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            </div>
           ) : activePage === 'Reports & Analytics' ? (
-            <div className="st-grid">
-              {STAFF_REPORT_METRICS.map((item) => (
-                <article key={item.title} className="st-card st-metric-card">
-                  <h3>{item.title}</h3>
-                  <p className="st-metric-value">{item.value}</p>
-                  <p>{item.note}</p>
-                </article>
-              ))}
+            <div className="st-reports-layout">
+              <article className="st-card st-reports-filters">
+                <h3>Report Filters</h3>
+                <div className="st-filters">
+                  <label>
+                    Date Range
+                    <select>
+                      <option>This Week</option>
+                      <option>This Month</option>
+                      <option>Last Month</option>
+                      <option>Custom Range</option>
+                    </select>
+                  </label>
+                  <label>
+                    Doctor
+                    <select>
+                      <option>All Doctors</option>
+                      <option>Dr. Sarah Khan</option>
+                      <option>Dr. Michael Reed</option>
+                      <option>Dr. Olivia Grant</option>
+                    </select>
+                  </label>
+                  <label>
+                    Report Type
+                    <select>
+                      <option>Financial + Operational</option>
+                      <option>Financial Only</option>
+                      <option>Appointments Only</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="st-billing-actions">
+                  <button type="button">Apply Filters</button>
+                  <button type="button">Export CSV</button>
+                  <button type="button">Export PDF</button>
+                </div>
+              </article>
+
+              <article className="st-card st-reports-kpis">
+                {STAFF_REPORT_METRICS.map((item) => (
+                  <div key={item.title} className="st-report-kpi">
+                    <p>{item.title}</p>
+                    <strong>{item.value}</strong>
+                    <span>{item.note}</span>
+                  </div>
+                ))}
+              </article>
+
+              <article className="st-card">
+                <h3>Income & Appointment Trend</h3>
+                <ul className="st-report-trend-list">
+                  {REPORT_TREND_ROWS.map((row) => (
+                    <li key={row.period}>
+                      <span>{row.period}</span>
+                      <strong>{row.income}</strong>
+                      <strong>{row.appointments} appts</strong>
+                      <span>{row.topDoctor}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+
+              <article className="st-card">
+                <h3>Top Insights</h3>
+                <ul className="st-dashboard-list">
+                  <li>
+                    <div>
+                      <strong>Most Visited Doctor</strong>
+                      <p>Dr. Sarah Khan handled 34% of visits this month.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div>
+                      <strong>Most Common Pet Illness</strong>
+                      <p>Skin Allergy is the highest reported diagnosis this month.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div>
+                      <strong>Monthly Volume</strong>
+                      <p>512 appointments logged with 8.7% growth vs last month.</p>
+                    </div>
+                  </li>
+                </ul>
+              </article>
             </div>
           ) : (
             <div className="st-grid">
