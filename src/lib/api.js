@@ -77,6 +77,13 @@ export function createPet(body) {
   })
 }
 
+export function updatePetById(petId, body) {
+  return request(`/api/pets/${petId}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
 export function deletePetById(petId, query) {
   return request(withQuery(`/api/pets/${petId}`, query), {
     method: 'DELETE',
@@ -100,6 +107,17 @@ export function listUsers(query) {
 
 export function createConsultation(body) {
   return request('/api/consultations', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export function listPrescriptions(query) {
+  return request(withQuery('/api/prescriptions', query))
+}
+
+export function createPrescription(body) {
+  return request('/api/prescriptions', {
     method: 'POST',
     body: JSON.stringify(body),
   })

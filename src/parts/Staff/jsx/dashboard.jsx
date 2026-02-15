@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react'
 import '../css/dashboard.css'
-import { createAppointment, getUserProfile, listAppointments, updateAppointmentById, updateUserProfile } from '../../../lib/api'
+import {
+  createAppointment,
+  createPet,
+  deletePetById,
+  getUserProfile,
+  listAppointments,
+  listPets,
+  listUsers,
+  registerUser,
+  updateAppointmentById,
+  updatePetById,
+  updateUserProfile,
+} from '../../../lib/api'
 
 const STAFF_PAGES = [
   'Dashboard',
@@ -98,29 +110,6 @@ const STAFF_QUICK_ACTIONS = [
   { title: 'Generate Invoice', text: 'Create bill and move to payment flow.' },
 ]
 
-const PET_OWNERS = [
-  { id: 'OWN-1001', name: 'Jonathan Smith', phone: '+1 (555) 222-9011', pets: 2, status: 'Active' },
-  { id: 'OWN-1002', name: 'Emma Davis', phone: '+1 (555) 103-7724', pets: 1, status: 'Active' },
-  { id: 'OWN-1003', name: 'Noah Patel', phone: '+1 (555) 804-6652', pets: 3, status: 'Active' },
-]
-
-const STAFF_PET_RECORDS = [
-  {
-    id: 'PET-1001',
-    name: 'Bella',
-    weight: '24 kg',
-    vaccinationDate: '2026-03-18',
-    history: 'Regular wellness check completed. Vaccination up to date.',
-  },
-  {
-    id: 'PET-1002',
-    name: 'Max',
-    weight: '7 kg',
-    vaccinationDate: '2026-03-22',
-    history: 'Follow-up visit done. Weight and vaccine schedule reviewed.',
-  },
-]
-
 const DOCTOR_AVAILABILITY = [
   { doctor: 'Dr. Sarah Khan', slot: '09:00 AM - 05:00 PM', status: 'Available' },
   { doctor: 'Dr. Michael Reed', slot: '10:00 AM - 06:00 PM', status: 'Available' },
@@ -157,6 +146,13 @@ const PAYMENT_HISTORY = [
   { invoice: 'INV-3004', owner: 'Sophia Lee', pet: 'Rocky', amount: '$220', method: 'Card', status: 'Paid' },
 ]
 
+function isPetOwnerRole(role) {
+  const normalized = String(role || '')
+    .trim()
+    .toLowerCase()
+  return normalized === 'pet-owner' || normalized === 'petowner' || normalized === 'pet owner'
+}
+
 export default function StaffDashboard({ currentUser, onLogout }) {
   const [activePage, setActivePage] = useState('Dashboard')
   const [filterDate, setFilterDate] = useState('')
@@ -165,6 +161,17 @@ export default function StaffDashboard({ currentUser, onLogout }) {
   const [appointments, setAppointments] = useState([])
   const [appointmentError, setAppointmentError] = useState('')
   const [appointmentStatusMessage, setAppointmentStatusMessage] = useState('')
+  const [owners, setOwners] = useState([])
+  const [ownerPetCounts, setOwnerPetCounts] = useState({})
+  const [isLoadingOwners, setIsLoadingOwners] = useState(false)
+  const [ownerError, setOwnerError] = useState('')
+  const [ownerStatusMessage, setOwnerStatusMessage] = useState('')
+  const [ownerSearch, setOwnerSearch] = useState('')
+  const [pets, setPets] = useState([])
+  const [isLoadingPets, setIsLoadingPets] = useState(false)
+  const [petRecordError, setPetRecordError] = useState('')
+  const [petRecordStatusMessage, setPetRecordStatusMessage] = useState('')
+  const [petSearch, setPetSearch] = useState('')
   const [profile, setProfile] = useState(currentUser || null)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [profileStatus, setProfileStatus] = useState('')
@@ -178,6 +185,29 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     const doctorMatch = filterDoctor === 'All' || item.doctorName === filterDoctor
     const statusMatch = filterStatus === 'All' || item.status === filterStatus
     return dateMatch && doctorMatch && statusMatch
+  })
+  const filteredOwners = owners.filter((owner) => {
+    const query = ownerSearch.trim().toLowerCase()
+    if (!query) {
+      return true
+    }
+    return (
+      owner.name.toLowerCase().includes(query) ||
+      owner.email.toLowerCase().includes(query) ||
+      owner.id.toLowerCase().includes(query)
+    )
+  })
+  const filteredPets = pets.filter((pet) => {
+    const query = petSearch.trim().toLowerCase()
+    if (!query) {
+      return true
+    }
+    return (
+      String(pet.name || '').toLowerCase().includes(query) ||
+      String(pet.breed || '').toLowerCase().includes(query) ||
+      String(pet.ownerName || '').toLowerCase().includes(query) ||
+      String(pet.id || '').toLowerCase().includes(query)
+    )
   })
 
   useEffect(() => {
@@ -198,6 +228,109 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     }
 
     loadAppointments()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const loadPetRecordsData = async () => {
+    const response = await listPets()
+    const allPets = Array.isArray(response?.pets) ? response.pets : []
+    return allPets.map((pet) => ({
+      id: pet.id,
+      ownerId: String(pet.ownerId || ''),
+      ownerName: String(pet.ownerName || ''),
+      name: String(pet.name || ''),
+      breed: String(pet.breed || ''),
+      age: String(pet.age || ''),
+      weight: String(pet.weight || ''),
+      vaccinationStatus: String(pet.vaccinationStatus || ''),
+    }))
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadPetsData = async () => {
+      try {
+        setIsLoadingPets(true)
+        setPetRecordError('')
+        const items = await loadPetRecordsData()
+        if (!cancelled) {
+          setPets(items)
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setPets([])
+          setPetRecordError(requestError.message)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingPets(false)
+        }
+      }
+    }
+
+    loadPetsData()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const loadOwnerManagementData = async () => {
+    const [userResponse, petResponse] = await Promise.all([listUsers(), listPets()])
+    const allUsers = Array.isArray(userResponse?.users) ? userResponse.users : []
+    const ownerUsers = allUsers.filter((user) => isPetOwnerRole(user.role))
+    const pets = Array.isArray(petResponse?.pets) ? petResponse.pets : []
+    const petCounts = {}
+    pets.forEach((pet) => {
+      const key = String(pet.ownerId || '').trim()
+      if (!key) {
+        return
+      }
+      petCounts[key] = (petCounts[key] || 0) + 1
+    })
+
+    return {
+      owners: ownerUsers.map((owner) => ({
+        id: owner.id,
+        name: String(owner.name || ''),
+        email: String(owner.email || ''),
+        role: String(owner.role || ''),
+        phone: String(owner.phone || ''),
+        address: String(owner.address || ''),
+        preferredContact: String(owner.preferredContact || 'Email'),
+      })),
+      petCounts,
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadOwners = async () => {
+      try {
+        setIsLoadingOwners(true)
+        setOwnerError('')
+        const data = await loadOwnerManagementData()
+        if (!cancelled) {
+          setOwners(data.owners)
+          setOwnerPetCounts(data.petCounts)
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setOwners([])
+          setOwnerPetCounts({})
+          setOwnerError(requestError.message)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingOwners(false)
+        }
+      }
+    }
+
+    loadOwners()
     return () => {
       cancelled = true
     }
@@ -340,6 +473,218 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     } catch (requestError) {
       setAppointmentError(requestError.message)
     }
+  }
+
+  const handleRegisterOwner = async (event) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    const name = String(formData.get('name') || '').trim()
+    const email = String(formData.get('email') || '').trim()
+    const password = String(formData.get('password') || '').trim()
+    const phone = String(formData.get('phone') || '').trim()
+    const address = String(formData.get('address') || '').trim()
+    const preferredContact = String(formData.get('preferredContact') || 'Email')
+
+    try {
+      setOwnerError('')
+      setOwnerStatusMessage('')
+      const registerResponse = await registerUser({
+        name,
+        email,
+        password,
+        role: 'pet-owner',
+      })
+      const createdUser = registerResponse?.user
+      if (createdUser?.id) {
+        await updateUserProfile(createdUser.id, {
+          name,
+          phone,
+          address,
+          preferredContact,
+        })
+      }
+      const data = await loadOwnerManagementData()
+      setOwners(data.owners)
+      setOwnerPetCounts(data.petCounts)
+      setOwnerStatusMessage('Pet owner registered successfully.')
+      event.currentTarget.reset()
+    } catch (requestError) {
+      setOwnerError(requestError.message)
+    }
+  }
+
+  const handleEditOwner = async (owner) => {
+    const nextName = window.prompt('Owner name:', owner.name || '')
+    if (nextName === null) {
+      return
+    }
+    const nextPhone = window.prompt('Phone number:', owner.phone || '')
+    if (nextPhone === null) {
+      return
+    }
+    const nextAddress = window.prompt('Address:', owner.address || '')
+    if (nextAddress === null) {
+      return
+    }
+    const nextPreferred = window.prompt('Preferred contact (Email / Phone / SMS):', owner.preferredContact || 'Email')
+    if (nextPreferred === null) {
+      return
+    }
+
+    try {
+      setOwnerError('')
+      setOwnerStatusMessage('')
+      const response = await updateUserProfile(owner.id, {
+        name: String(nextName).trim(),
+        phone: String(nextPhone).trim(),
+        address: String(nextAddress).trim(),
+        preferredContact: String(nextPreferred).trim() || 'Email',
+      })
+      const updated = response?.user
+      if (updated) {
+        setOwners((current) =>
+          current.map((item) =>
+            item.id === updated.id
+              ? {
+                  ...item,
+                  name: updated.name || '',
+                  phone: updated.phone || '',
+                  address: updated.address || '',
+                  preferredContact: updated.preferredContact || 'Email',
+                }
+              : item
+          )
+        )
+      }
+      setOwnerStatusMessage('Owner details updated.')
+    } catch (requestError) {
+      setOwnerError(requestError.message)
+    }
+  }
+
+  const handleViewOwnerProfile = (owner) => {
+    window.alert(
+      `Owner: ${owner.name}\nEmail: ${owner.email}\nPhone: ${owner.phone || '-'}\nPreferred Contact: ${owner.preferredContact || '-'}\nAddress: ${owner.address || '-'}`
+    )
+  }
+
+  const handleViewOwnerPets = async (owner) => {
+    try {
+      setOwnerError('')
+      const response = await listPets({ userId: owner.id })
+      const ownerPets = Array.isArray(response?.pets) ? response.pets : []
+      if (!ownerPets.length) {
+        window.alert(`${owner.name} has no pets registered.`)
+        return
+      }
+      const lines = ownerPets.map((pet) => `- ${pet.name} (${pet.breed || 'Unknown breed'})`)
+      window.alert(`${owner.name}'s pets:\n${lines.join('\n')}`)
+    } catch (requestError) {
+      setOwnerError(requestError.message)
+    }
+  }
+
+  const refreshOwnersAndPets = async () => {
+    const [ownerData, petData] = await Promise.all([loadOwnerManagementData(), loadPetRecordsData()])
+    setOwners(ownerData.owners)
+    setOwnerPetCounts(ownerData.petCounts)
+    setPets(petData)
+  }
+
+  const handleCreatePetRecord = async (event) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    const ownerId = String(formData.get('ownerId') || '').trim()
+    const selectedOwner = owners.find((owner) => owner.id === ownerId)
+    const payload = {
+      ownerId,
+      ownerName: selectedOwner?.name || '',
+      name: String(formData.get('name') || '').trim(),
+      breed: String(formData.get('breed') || '').trim(),
+      age: String(formData.get('age') || '').trim(),
+      weight: String(formData.get('weight') || '').trim(),
+      vaccinationStatus: String(formData.get('vaccinationStatus') || '').trim(),
+    }
+
+    try {
+      setPetRecordError('')
+      setPetRecordStatusMessage('')
+      await createPet(payload)
+      await refreshOwnersAndPets()
+      setPetRecordStatusMessage('Pet added to pet_data successfully.')
+      event.currentTarget.reset()
+    } catch (requestError) {
+      setPetRecordError(requestError.message)
+    }
+  }
+
+  const handleUpdatePetWeight = async (pet) => {
+    const newWeight = window.prompt('Enter new weight:', pet.weight || '')
+    if (newWeight === null) {
+      return
+    }
+    try {
+      setPetRecordError('')
+      setPetRecordStatusMessage('')
+      const response = await updatePetById(pet.id, { weight: String(newWeight).trim() })
+      const updated = response?.pet
+      if (updated) {
+        setPets((current) => current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)))
+      }
+      setPetRecordStatusMessage('Pet weight updated.')
+    } catch (requestError) {
+      setPetRecordError(requestError.message)
+    }
+  }
+
+  const handleUpdateVaccinationStatus = async (pet) => {
+    const newVaccination = window.prompt(
+      'Enter vaccination date/status (e.g. 2026-03-22 or Up to date):',
+      pet.vaccinationStatus || ''
+    )
+    if (newVaccination === null) {
+      return
+    }
+    try {
+      setPetRecordError('')
+      setPetRecordStatusMessage('')
+      const response = await updatePetById(pet.id, { vaccinationStatus: String(newVaccination).trim() })
+      const updated = response?.pet
+      if (updated) {
+        setPets((current) => current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)))
+      }
+      setPetRecordStatusMessage('Vaccination status updated.')
+    } catch (requestError) {
+      setPetRecordError(requestError.message)
+    }
+  }
+
+  const handleDeletePetRecord = async (pet) => {
+    const confirmed = window.confirm(`Delete ${pet.name}? This will remove the pet from pet_data.`)
+    if (!confirmed) {
+      return
+    }
+    try {
+      setPetRecordError('')
+      setPetRecordStatusMessage('')
+      await deletePetById(pet.id)
+      await refreshOwnersAndPets()
+      setPetRecordStatusMessage('Pet deleted from pet_data.')
+    } catch (requestError) {
+      setPetRecordError(requestError.message)
+    }
+  }
+
+  const handleViewPetHistory = (pet) => {
+    window.alert(
+      `Pet: ${pet.name}\nOwner: ${pet.ownerName || '-'}\nBreed: ${pet.breed}\nAge: ${pet.age}\nWeight: ${pet.weight}\nVaccination: ${
+        pet.vaccinationStatus || '-'
+      }\n\nHistory is read-only for staff.`
+    )
+  }
+
+  const handleUploadPetDocument = (pet) => {
+    window.alert(`Document upload for ${pet.name} is UI-only right now. Backend storage is not configured yet.`)
   }
 
   return (
@@ -511,47 +856,101 @@ export default function StaffDashboard({ currentUser, onLogout }) {
             <div className="st-appointments">
               <article className="st-card">
                 <h3>Register New Pet Owner</h3>
-                <div className="st-filters">
+                <form className="st-filters" onSubmit={handleRegisterOwner}>
                   <label>
                     Full Name
-                    <input type="text" placeholder="Enter owner name" />
-                  </label>
-                  <label>
-                    Phone Number
-                    <input type="tel" placeholder="Enter phone number" />
+                    <input name="name" type="text" placeholder="Enter owner name" required />
                   </label>
                   <label>
                     Email
-                    <input type="email" placeholder="Enter email address" />
+                    <input name="email" type="email" placeholder="Enter email address" required />
                   </label>
-                </div>
-                <button type="button" className="st-plain-btn">
-                  Register New Pet Owner
-                </button>
+                  <label>
+                    Password
+                    <input name="password" type="password" placeholder="Minimum 8 characters" minLength={8} required />
+                  </label>
+                  <label>
+                    Phone Number
+                    <input name="phone" type="tel" placeholder="Enter phone number" />
+                  </label>
+                  <label>
+                    Preferred Contact
+                    <select name="preferredContact" defaultValue="Email">
+                      <option>Email</option>
+                      <option>Phone</option>
+                      <option>SMS</option>
+                    </select>
+                  </label>
+                  <label>
+                    Address
+                    <input name="address" type="text" placeholder="Enter address" />
+                  </label>
+                  <button type="submit" className="st-plain-btn">
+                    Register New Pet Owner
+                  </button>
+                </form>
+                {ownerStatusMessage ? <p className="st-form-success">{ownerStatusMessage}</p> : null}
+                {ownerError ? <p className="st-form-error">{ownerError}</p> : null}
               </article>
 
               <article className="st-card">
                 <h3>Pet Owner Management</h3>
+                <div className="st-filters">
+                  <label>
+                    Search Owner
+                    <input
+                      type="text"
+                      value={ownerSearch}
+                      placeholder="Search by name, email, or ID"
+                      onChange={(event) => setOwnerSearch(event.target.value)}
+                    />
+                  </label>
+                </div>
                 <ul className="st-appointment-list">
-                  {PET_OWNERS.map((owner) => (
+                  {isLoadingOwners ? (
+                    <li>
+                      <div>
+                        <strong>Loading owners...</strong>
+                      </div>
+                    </li>
+                  ) : filteredOwners.length ? (
+                    filteredOwners.map((owner) => (
                     <li key={owner.id}>
                       <div>
                         <strong>
                           {owner.id} - {owner.name}
                         </strong>
                         <p>
-                          {owner.phone} | Pets: {owner.pets}
+                          {owner.email}
                         </p>
-                        <p>Status: {owner.status}</p>
+                        <p>
+                          {owner.phone || '-'} | Pets: {ownerPetCounts[owner.id] || 0}
+                        </p>
+                        <p>Preferred Contact: {owner.preferredContact || 'Email'}</p>
                       </div>
                       <div className="st-appointment-actions">
-                        <button type="button">Edit Owner Details</button>
-                        <button type="button">View Profile</button>
-                        <button type="button">View Owner’s Pets</button>
-                        <button type="button">Deactivate Account</button>
+                        <button type="button" onClick={() => handleEditOwner(owner)}>
+                          Edit Owner Details
+                        </button>
+                        <button type="button" onClick={() => handleViewOwnerProfile(owner)}>
+                          View Profile
+                        </button>
+                        <button type="button" onClick={() => handleViewOwnerPets(owner)}>
+                          View Owner’s Pets
+                        </button>
+                        <button type="button" disabled title="Deactivate flow is not configured yet.">
+                          Deactivate (Soon)
+                        </button>
                       </div>
                     </li>
-                  ))}
+                    ))
+                  ) : (
+                    <li>
+                      <div>
+                        <strong>No pet owners found.</strong>
+                      </div>
+                    </li>
+                  )}
                 </ul>
               </article>
             </div>
@@ -559,46 +958,108 @@ export default function StaffDashboard({ currentUser, onLogout }) {
             <div className="st-appointments">
               <article className="st-card">
                 <h3>Add Pet Basic Information</h3>
-                <div className="st-filters">
+                <form className="st-filters" onSubmit={handleCreatePetRecord}>
                   <label>
-                    Pet ID
-                    <input type="text" placeholder="Enter pet ID" />
+                    Pet Owner
+                    <select name="ownerId" required defaultValue="">
+                      <option value="" disabled>
+                        Select owner
+                      </option>
+                      {owners.map((owner) => (
+                        <option key={owner.id} value={owner.id}>
+                          {owner.name} ({owner.email})
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <label>
                     Pet Name
-                    <input type="text" placeholder="Enter pet name" />
+                    <input name="name" type="text" placeholder="Enter pet name" required />
                   </label>
                   <label>
                     Breed
-                    <input type="text" placeholder="Enter breed" />
+                    <input name="breed" type="text" placeholder="Enter breed" required />
                   </label>
-                </div>
-                <button type="button" className="st-plain-btn">
-                  Add Pet Basic Information
-                </button>
+                  <label>
+                    Age
+                    <input name="age" type="text" placeholder="Enter age" required />
+                  </label>
+                  <label>
+                    Weight
+                    <input name="weight" type="text" placeholder="Enter weight" required />
+                  </label>
+                  <label>
+                    Vaccination Date / Status
+                    <input name="vaccinationStatus" type="text" placeholder="e.g. 2026-03-22 / Up to date" required />
+                  </label>
+                  <button type="submit" className="st-plain-btn">
+                    Add Pet Basic Information
+                  </button>
+                </form>
+                {petRecordStatusMessage ? <p className="st-form-success">{petRecordStatusMessage}</p> : null}
+                {petRecordError ? <p className="st-form-error">{petRecordError}</p> : null}
               </article>
 
               <article className="st-card">
                 <h3>Pet Records</h3>
+                <div className="st-filters">
+                  <label>
+                    Search Pet
+                    <input
+                      type="text"
+                      value={petSearch}
+                      placeholder="Search by pet, breed, owner, or ID"
+                      onChange={(event) => setPetSearch(event.target.value)}
+                    />
+                  </label>
+                </div>
                 <ul className="st-appointment-list">
-                  {STAFF_PET_RECORDS.map((pet) => (
+                  {isLoadingPets ? (
+                    <li>
+                      <div>
+                        <strong>Loading pet records...</strong>
+                      </div>
+                    </li>
+                  ) : filteredPets.length ? (
+                    filteredPets.map((pet) => (
                     <li key={pet.id}>
                       <div>
                         <strong>
                           {pet.id} - {pet.name}
                         </strong>
+                        <p>Owner: {pet.ownerName || pet.ownerId || '-'}</p>
+                        <p>Breed: {pet.breed}</p>
+                        <p>Age: {pet.age}</p>
                         <p>Weight: {pet.weight}</p>
-                        <p>Vaccination Date: {pet.vaccinationDate}</p>
-                        <p>History (Read-only): {pet.history}</p>
+                        <p>Vaccination Date/Status: {pet.vaccinationStatus}</p>
+                        <p>History (Read-only): Basic info only for staff.</p>
                       </div>
                       <div className="st-appointment-actions">
-                        <button type="button">Update Weight</button>
-                        <button type="button">Update Vaccination Date</button>
-                        <button type="button">Upload Documents</button>
-                        <button type="button">View Pet History</button>
+                        <button type="button" onClick={() => handleUpdatePetWeight(pet)}>
+                          Update Weight
+                        </button>
+                        <button type="button" onClick={() => handleUpdateVaccinationStatus(pet)}>
+                          Update Vaccination Date
+                        </button>
+                        <button type="button" onClick={() => handleUploadPetDocument(pet)}>
+                          Upload Documents
+                        </button>
+                        <button type="button" onClick={() => handleViewPetHistory(pet)}>
+                          View Pet History
+                        </button>
+                        <button type="button" onClick={() => handleDeletePetRecord(pet)}>
+                          Delete Pet
+                        </button>
                       </div>
                     </li>
-                  ))}
+                    ))
+                  ) : (
+                    <li>
+                      <div>
+                        <strong>No pet records found in pet_data.</strong>
+                      </div>
+                    </li>
+                  )}
                 </ul>
               </article>
 

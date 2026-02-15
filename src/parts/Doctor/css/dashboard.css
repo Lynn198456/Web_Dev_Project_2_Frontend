@@ -427,8 +427,50 @@
   gap: 12px;
 }
 
+.dr-record-metrics {
+  display: grid;
+  gap: 8px;
+}
+
+.dr-record-metric {
+  border-radius: 9px;
+  border: 1px solid rgba(77, 125, 133, 0.2);
+  background: rgba(255, 255, 255, 0.55);
+  padding: 10px;
+}
+
+.dr-record-metric span {
+  display: block;
+  font-size: 11px;
+  color: #4f6d74;
+}
+
+.dr-record-metric strong {
+  margin-top: 4px;
+  display: block;
+  font-size: 22px;
+  color: #234146;
+}
+
 .dr-record-search {
   margin-top: 10px;
+  border: 1px solid rgba(77, 125, 133, 0.35);
+  border-radius: 8px;
+  background: #f7fbfc;
+  min-height: 36px;
+  padding: 0 10px;
+  font: inherit;
+  color: #234146;
+}
+
+.dr-record-filter-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.dr-record-filter-grid select,
+.dr-record-filter-grid input[type='date'] {
   border: 1px solid rgba(77, 125, 133, 0.35);
   border-radius: 8px;
   background: #f7fbfc;
@@ -453,6 +495,32 @@
   padding: 10px;
 }
 
+.dr-record-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.dr-record-head p {
+  margin-top: 3px !important;
+  color: #4f6d74;
+}
+
+.dr-record-date {
+  border-radius: 999px;
+  background: rgba(56, 102, 111, 0.12);
+  color: #315a63;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dr-record-body {
+  margin-top: 8px;
+}
+
 .dr-record-list p {
   margin: 0;
   font-size: 12px;
@@ -461,6 +529,25 @@
 
 .dr-record-list p + p {
   margin-top: 4px;
+}
+
+.dr-record-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dr-record-actions button {
+  border: 0;
+  border-radius: 8px;
+  background: #2f5f69;
+  color: #fff;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .dr-record-entry .dr-entry-fields {
@@ -492,7 +579,9 @@
   gap: 8px;
 }
 
-.dr-prescription-form input {
+.dr-prescription-form input,
+.dr-prescription-form select,
+.dr-prescription-form textarea {
   border: 1px solid rgba(77, 125, 133, 0.35);
   border-radius: 8px;
   background: #f7fbfc;
@@ -501,6 +590,12 @@
   min-height: 36px;
   padding: 0 10px;
   box-sizing: border-box;
+}
+
+.dr-prescription-form textarea {
+  min-height: 78px;
+  padding: 8px 10px;
+  resize: vertical;
 }
 
 .dr-prescription-list {
@@ -536,74 +631,6 @@
 }
 
 .dr-prescription-actions button {
-  border: 0;
-  border-radius: 8px;
-  background: #2f5f69;
-  color: #fff;
-  min-height: 30px;
-  padding: 0 10px;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.dr-lab {
-  margin-top: 14px;
-  display: grid;
-  gap: 12px;
-}
-
-.dr-lab-upload .dr-entry-fields {
-  margin-top: 10px;
-  display: grid;
-  gap: 8px;
-}
-
-.dr-lab-upload input[type='text'],
-.dr-lab-upload input[type='file'] {
-  border: 1px solid rgba(77, 125, 133, 0.35);
-  border-radius: 8px;
-  background: #f7fbfc;
-  color: #234146;
-  font: inherit;
-  min-height: 36px;
-  padding: 7px 10px;
-  box-sizing: border-box;
-}
-
-.dr-attachment-list {
-  list-style: none;
-  margin: 10px 0 0;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-}
-
-.dr-attachment-list li {
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(77, 125, 133, 0.2);
-  padding: 10px;
-  display: grid;
-  gap: 8px;
-}
-
-.dr-attachment-list strong {
-  font-size: 13px;
-}
-
-.dr-attachment-list p {
-  margin: 3px 0 0;
-  font-size: 12px;
-}
-
-.dr-attachment-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.dr-attachment-actions button {
   border: 0;
   border-radius: 8px;
   background: #2f5f69;
@@ -796,12 +823,21 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .dr-record-metrics {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   .dr-record-entry {
     grid-column: 1 / -1;
   }
 
   .dr-record-entry .dr-entry-fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dr-record-filter-grid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
   }
 
   .dr-prescriptions {
@@ -813,19 +849,6 @@
   }
 
   .dr-prescription-list li {
-    grid-template-columns: 1fr auto;
-    align-items: center;
-  }
-
-  .dr-lab {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .dr-lab-upload .dr-entry-fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .dr-attachment-list li {
     grid-template-columns: 1fr auto;
     align-items: center;
   }

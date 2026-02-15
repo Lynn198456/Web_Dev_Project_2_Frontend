@@ -1,13 +1,21 @@
 import { useEffect, useState } from 'react'
 import '../css/dashboard.css'
-import { createConsultation, getUserProfile, listAppointments, updateAppointmentById, updateUserProfile } from '../../../lib/api'
+import {
+  createConsultation,
+  createPrescription,
+  getUserProfile,
+  listAppointments,
+  listPets,
+  listPrescriptions,
+  updateAppointmentById,
+  updateUserProfile,
+} from '../../../lib/api'
 
 const DOCTOR_PAGES = [
   'Doctor Dashboard',
   'Appointments Page',
   'Pet Medical Records Page',
   'Prescriptions Page',
-  'Lab Results / Attachments Page',
   'Doctor Schedule / Availability Page',
   'Profile',
 ]
@@ -56,39 +64,6 @@ const MEDICAL_RECORDS = [
     vaccine: 'Core vaccines up to date',
     labResult: 'Culture clear post-treatment',
   },
-]
-
-const PRESCRIPTION_HISTORY = [
-  {
-    id: 'RX-1001',
-    date: '2026-03-18',
-    pet: 'Bella',
-    medicine: 'Probiotic Syrup',
-    dosage: '5ml twice daily',
-    duration: '5 days',
-  },
-  {
-    id: 'RX-1002',
-    date: '2026-03-17',
-    pet: 'Max',
-    medicine: 'Cetirizine 5mg',
-    dosage: '1 tablet daily',
-    duration: '7 days',
-  },
-  {
-    id: 'RX-1003',
-    date: '2026-03-15',
-    pet: 'Luna',
-    medicine: 'Ear Drops',
-    dosage: '2 drops twice daily',
-    duration: '6 days',
-  },
-]
-
-const LAB_ATTACHMENTS = [
-  { visitId: 'V-1001', pet: 'Bella', fileName: 'cbc_report_march18.pdf' },
-  { visitId: 'V-1002', pet: 'Max', fileName: 'skin_test_photo.png' },
-  { visitId: 'V-1003', pet: 'Luna', fileName: 'ear_swab_result.pdf' },
 ]
 
 const AVAILABLE_SLOTS = ['09:00 - 09:30', '09:30 - 10:00', '10:30 - 11:00', '11:00 - 11:30', '02:00 - 02:30']
@@ -140,16 +115,6 @@ const PAGE_CONTENT = {
       { title: 'History', detail: 'Past prescription logs', action: 'View history' },
     ],
   },
-  'Lab Results / Attachments Page': {
-    title: 'Lab Results / Attachments Page',
-    subtitle: 'Review uploaded test results and supporting documents.',
-    cards: [
-      { title: 'Recent Uploads', detail: 'Latest submitted files', action: 'Open uploads' },
-      { title: 'Abnormal Results', detail: 'Flagged reports needing review', action: 'Review flagged' },
-      { title: 'Attachments', detail: 'Scans, PDFs, and prescriptions', action: 'Open attachments' },
-      { title: 'Export', detail: 'Download selected files', action: 'Export files' },
-    ],
-  },
   'Doctor Schedule / Availability Page': {
     title: 'Doctor Schedule / Availability Page',
     subtitle: 'Manage working hours and available consultation slots.',
@@ -186,6 +151,11 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
   const [isSavingConsultation, setIsSavingConsultation] = useState(false)
   const [consultStatusMessage, setConsultStatusMessage] = useState('')
   const [consultErrorMessage, setConsultErrorMessage] = useState('')
+  const [pets, setPets] = useState([])
+  const [prescriptionHistory, setPrescriptionHistory] = useState([])
+  const [isSavingPrescription, setIsSavingPrescription] = useState(false)
+  const [prescriptionStatusMessage, setPrescriptionStatusMessage] = useState('')
+  const [prescriptionErrorMessage, setPrescriptionErrorMessage] = useState('')
   const content = PAGE_CONTENT[activePage] || PAGE_CONTENT['Doctor Dashboard']
   const todayIso = new Date().toISOString().slice(0, 10)
   const getBucket = (dateValue) => {
@@ -243,6 +213,13 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
       item.id.toLowerCase().includes(query)
     )
   })
+  const prescriptionPetOptions = pets
+    .map((item) => ({
+      id: item.id,
+      name: String(item.name || ''),
+      ownerName: String(item.ownerName || ''),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   useEffect(() => {
     return () => {
@@ -266,7 +243,7 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
         if (!cancelled) {
           setProfile(response?.user || currentUser)
         }
-      } catch (_error) {
+      } catch {
         if (!cancelled) {
           setProfile(currentUser || null)
         }
@@ -296,7 +273,7 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
         if (!cancelled) {
           setAppointments(Array.isArray(response?.appointments) ? response.appointments : [])
         }
-      } catch (_error) {
+      } catch {
         if (!cancelled) {
           setAppointments([])
         }
@@ -304,6 +281,34 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
     }
 
     loadAppointments()
+    return () => {
+      cancelled = true
+    }
+  }, [profile?.name, currentUser?.name])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadPrescriptionData = async () => {
+      const doctorName = String(profile?.name || currentUser?.name || '').trim()
+      try {
+        const [petsResponse, prescriptionResponse] = await Promise.all([
+          listPets(),
+          listPrescriptions(doctorName ? { doctorName } : {}),
+        ])
+        if (!cancelled) {
+          setPets(Array.isArray(petsResponse?.pets) ? petsResponse.pets : [])
+          setPrescriptionHistory(Array.isArray(prescriptionResponse?.prescriptions) ? prescriptionResponse.prescriptions : [])
+        }
+      } catch {
+        if (!cancelled) {
+          setPets([])
+          setPrescriptionHistory([])
+        }
+      }
+    }
+
+    loadPrescriptionData()
     return () => {
       cancelled = true
     }
@@ -413,6 +418,40 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
   const openConsultationForAppointment = (appointmentId) => {
     setConsultAppointmentId(appointmentId)
     setActivePage('Consultation Details')
+  }
+
+  const handlePrescriptionSubmit = async (event) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    const petId = String(formData.get('petId') || '').trim()
+    const medicine = String(formData.get('medicine') || '').trim()
+    const dosage = String(formData.get('dosage') || '').trim()
+    const duration = String(formData.get('duration') || '').trim()
+    const notes = String(formData.get('notes') || '').trim()
+
+    try {
+      setIsSavingPrescription(true)
+      setPrescriptionErrorMessage('')
+      setPrescriptionStatusMessage('')
+      await createPrescription({
+        petId,
+        doctorId: profile?.id || '',
+        doctorName: profile?.name || currentUser?.name || 'Doctor',
+        medicine,
+        dosage,
+        duration,
+        notes,
+      })
+      const doctorName = String(profile?.name || currentUser?.name || '').trim()
+      const response = await listPrescriptions(doctorName ? { doctorName } : {})
+      setPrescriptionHistory(Array.isArray(response?.prescriptions) ? response.prescriptions : [])
+      setPrescriptionStatusMessage('Prescription saved to Prescription_data and pet_data updated.')
+      event.currentTarget.reset()
+    } catch (requestError) {
+      setPrescriptionErrorMessage(requestError.message)
+    } finally {
+      setIsSavingPrescription(false)
+    }
   }
 
   return (
@@ -709,68 +748,51 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
             </div>
           ) : activePage === 'Prescriptions Page' ? (
             <div className="dr-prescriptions">
-              <article className="dr-card dr-prescription-form">
+              <form className="dr-card dr-prescription-form" onSubmit={handlePrescriptionSubmit}>
                 <h3>Create Prescription</h3>
                 <div className="dr-entry-fields">
-                  <input type="text" placeholder="Medicine" />
-                  <input type="text" placeholder="Dosage" />
-                  <input type="text" placeholder="Duration" />
+                  <select name="petId" defaultValue="" required>
+                    <option value="" disabled>
+                      Select pet
+                    </option>
+                    {prescriptionPetOptions.map((pet) => (
+                      <option key={pet.id} value={pet.id}>
+                        {pet.name} {pet.ownerName ? `(${pet.ownerName})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <input name="medicine" type="text" placeholder="Medicine" required />
+                  <input name="dosage" type="text" placeholder="Dosage" required />
+                  <input name="duration" type="text" placeholder="Duration" required />
+                  <textarea name="notes" rows="3" placeholder="Additional notes (optional)" />
                 </div>
-                <button type="button">Create Prescription</button>
-              </article>
+                <button type="submit" disabled={isSavingPrescription || !prescriptionPetOptions.length}>
+                  {isSavingPrescription ? 'Saving...' : 'Create Prescription'}
+                </button>
+                {prescriptionStatusMessage ? <p className="dr-form-success">{prescriptionStatusMessage}</p> : null}
+                {prescriptionErrorMessage ? <p className="dr-form-error">{prescriptionErrorMessage}</p> : null}
+              </form>
 
               <article className="dr-card">
                 <h3>Prescription History</h3>
                 <ul className="dr-prescription-list">
-                  {PRESCRIPTION_HISTORY.map((item) => (
+                  {prescriptionHistory.map((item) => (
                     <li key={item.id}>
                       <div>
                         <strong>
-                          {item.id} - {item.pet}
+                          {item.id} - {item.petName}
                         </strong>
                         <p>
-                          {item.date} | {item.medicine}
+                          {new Date(item.createdAt).toLocaleDateString('en-US')} | {item.medicine}
                         </p>
                         <p>
                           {item.dosage} | {item.duration}
                         </p>
                       </div>
                       <div className="dr-prescription-actions">
-                        <button type="button">Download</button>
-                        <button type="button">Print</button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            </div>
-          ) : activePage === 'Lab Results / Attachments Page' ? (
-            <div className="dr-lab">
-              <article className="dr-card dr-lab-upload">
-                <h3>Upload Lab Result Files / Images</h3>
-                <div className="dr-entry-fields">
-                  <input type="text" placeholder="Visit ID" />
-                  <input type="text" placeholder="Pet Name" />
-                  <input type="file" />
-                  <input type="file" accept="image/*" />
-                </div>
-                <button type="button">Upload Attachment</button>
-              </article>
-
-              <article className="dr-card">
-                <h3>Attachments Per Visit</h3>
-                <ul className="dr-attachment-list">
-                  {LAB_ATTACHMENTS.map((item) => (
-                    <li key={`${item.visitId}-${item.fileName}`}>
-                      <div>
-                        <strong>{item.visitId}</strong>
-                        <p>
-                          {item.pet} - {item.fileName}
-                        </p>
-                      </div>
-                      <div className="dr-attachment-actions">
-                        <button type="button">View</button>
-                        <button type="button">Download</button>
+                        <button type="button" onClick={() => window.print()}>
+                          Print
+                        </button>
                       </div>
                     </li>
                   ))}
