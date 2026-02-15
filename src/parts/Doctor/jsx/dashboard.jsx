@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import '../css/dashboard.css'
-import { getUserProfile, updateUserProfile } from '../../../lib/api'
+import { createConsultation, getUserProfile, listAppointments, updateAppointmentById, updateUserProfile } from '../../../lib/api'
 
 const DOCTOR_PAGES = [
   'Doctor Dashboard',
   'Appointments Page',
-  'Consultation Page',
   'Pet Medical Records Page',
   'Prescriptions Page',
   'Lab Results / Attachments Page',
@@ -13,26 +12,10 @@ const DOCTOR_PAGES = [
   'Profile',
 ]
 
-const TODAY_APPOINTMENTS = [
-  { time: '09:00 AM', pet: 'Bella', owner: 'Jonathan Smith' },
-  { time: '10:30 AM', pet: 'Max', owner: 'Emma Davis' },
-  { time: '01:00 PM', pet: 'Luna', owner: 'Noah Patel' },
-  { time: '03:15 PM', pet: 'Rocky', owner: 'Sophia Lee' },
-]
-
 const PENDING_REQUESTS = [
   'Prescription refill request for Bella',
   'Lab report review request for Max',
   'Follow-up consultation request for Luna',
-]
-
-const APPOINTMENT_LOGS = [
-  { id: 'D-1001', bucket: 'Today', date: '2026-03-18', status: 'Confirmed', pet: 'Bella', owner: 'Jonathan Smith' },
-  { id: 'D-1002', bucket: 'Today', date: '2026-03-18', status: 'Pending', pet: 'Max', owner: 'Emma Davis' },
-  { id: 'D-1003', bucket: 'Upcoming', date: '2026-03-22', status: 'Confirmed', pet: 'Luna', owner: 'Noah Patel' },
-  { id: 'D-1004', bucket: 'Upcoming', date: '2026-03-25', status: 'Pending', pet: 'Rocky', owner: 'Sophia Lee' },
-  { id: 'D-1005', bucket: 'Past', date: '2026-03-10', status: 'Completed', pet: 'Pluto', owner: 'Liam Johnson' },
-  { id: 'D-1006', bucket: 'Past', date: '2026-03-08', status: 'Cancelled', pet: 'Coco', owner: 'Ava Martinez' },
 ]
 
 const CONSULTATION_CASE = {
@@ -127,8 +110,8 @@ const PAGE_CONTENT = {
       { title: 'Search', detail: 'Find by date, pet, or owner', action: 'Search now' },
     ],
   },
-  'Consultation Page': {
-    title: 'Consultation Page',
+  'Consultation Details': {
+    title: 'Consultation Details',
     subtitle: 'Capture symptoms, diagnosis notes, and next treatment steps.',
     cards: [
       { title: 'Current Case', detail: 'Patient intake and symptoms', action: 'Start note' },
@@ -198,13 +181,57 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [profileStatus, setProfileStatus] = useState('')
   const [profileError, setProfileError] = useState('')
+  const [appointments, setAppointments] = useState([])
+  const [consultAppointmentId, setConsultAppointmentId] = useState('')
+  const [isSavingConsultation, setIsSavingConsultation] = useState(false)
+  const [consultStatusMessage, setConsultStatusMessage] = useState('')
+  const [consultErrorMessage, setConsultErrorMessage] = useState('')
   const content = PAGE_CONTENT[activePage] || PAGE_CONTENT['Doctor Dashboard']
-  const filteredAppointments = APPOINTMENT_LOGS.filter((item) => {
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const getBucket = (dateValue) => {
+    if (!dateValue) {
+      return 'Upcoming'
+    }
+    if (dateValue === todayIso) {
+      return 'Today'
+    }
+    return dateValue > todayIso ? 'Upcoming' : 'Past'
+  }
+  const appointmentRows = appointments.map((item) => ({
+    id: item.id,
+    bucket: getBucket(item.appointmentDate),
+    date: item.appointmentDate,
+    status: item.status || 'Pending',
+    pet: item.petName || '-',
+    owner: item.ownerName || '-',
+    doctor: item.doctorName || '',
+    time: item.appointmentTime || '',
+    reason: item.reason || '',
+  }))
+  const todayAppointments = appointmentRows.filter((item) => item.bucket === 'Today')
+  const filteredAppointments = appointmentRows.filter((item) => {
     const inView = item.bucket === appointmentView
     const inStatus = appointmentStatus === 'All' || item.status === appointmentStatus
     const inDate = !appointmentDate || item.date === appointmentDate
     return inView && inStatus && inDate
   })
+  const consultationAppointments = appointmentRows.filter((item) => item.status !== 'Cancelled')
+  const selectedConsultation =
+    consultationAppointments.find((item) => item.id === consultAppointmentId) || consultationAppointments[0] || null
+  const formatConsultDate = (value) => {
+    if (!value) {
+      return '-'
+    }
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) {
+      return value
+    }
+    return parsed.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  }
   const filteredRecords = MEDICAL_RECORDS.filter((item) => {
     const query = recordSearch.trim().toLowerCase()
     if (!query) {
@@ -252,6 +279,40 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
     }
   }, [currentUser])
 
+  useEffect(() => {
+    let cancelled = false
+
+    const loadAppointments = async () => {
+      try {
+        const response = await listAppointments()
+        if (!cancelled) {
+          setAppointments(Array.isArray(response?.appointments) ? response.appointments : [])
+        }
+      } catch (_error) {
+        if (!cancelled) {
+          setAppointments([])
+        }
+      }
+    }
+
+    loadAppointments()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    setConsultAppointmentId((currentId) => {
+      if (!consultationAppointments.length) {
+        return ''
+      }
+      if (consultationAppointments.some((item) => item.id === currentId)) {
+        return currentId
+      }
+      return consultationAppointments[0].id
+    })
+  }, [consultationAppointments])
+
   const handlePhotoChange = (event) => {
     const file = event.target.files?.[0]
     if (!file) {
@@ -292,6 +353,60 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
     }
   }
 
+  const handleConsultationSubmit = async (event) => {
+    event.preventDefault()
+    if (!selectedConsultation?.id) {
+      setConsultErrorMessage('No appointment selected for consultation.')
+      return
+    }
+
+    const formData = new FormData(event.currentTarget)
+    const consultOutcome = String(formData.get('consultOutcome') || 'Completed')
+    const mappedStatus = consultOutcome === 'Follow-up needed' ? 'Confirmed' : consultOutcome
+    const consultationPayload = {
+      appointmentId: selectedConsultation.id,
+      doctorId: profile?.id || '',
+      doctorName: profile?.name || selectedConsultation.doctor || 'Doctor',
+      ownerName: selectedConsultation.owner || '',
+      petName: selectedConsultation.pet || '',
+      appointmentDate: selectedConsultation.date || '',
+      appointmentTime: selectedConsultation.time || '',
+      symptoms: String(formData.get('symptoms') || '').trim(),
+      temperature: String(formData.get('temperature') || '').trim(),
+      weight: String(formData.get('weight') || '').trim(),
+      heartRate: String(formData.get('heartRate') || '').trim(),
+      respiratoryRate: String(formData.get('respiratoryRate') || '').trim(),
+      clinicalFindings: String(formData.get('clinicalFindings') || '').trim(),
+      diagnosis: String(formData.get('diagnosis') || '').trim(),
+      treatmentPlan: String(formData.get('treatmentPlan') || '').trim(),
+      prescription: String(formData.get('prescription') || '').trim(),
+      followUpDate: String(formData.get('followUpDate') || '').trim(),
+      outcome: consultOutcome,
+    }
+
+    try {
+      setIsSavingConsultation(true)
+      setConsultErrorMessage('')
+      setConsultStatusMessage('')
+      await createConsultation(consultationPayload)
+      const response = await updateAppointmentById(selectedConsultation.id, { status: mappedStatus })
+      const updated = response?.appointment
+      if (updated) {
+        setAppointments((currentItems) => currentItems.map((item) => (item.id === updated.id ? updated : item)))
+      }
+      setConsultStatusMessage('Consultation notes saved and appointment updated.')
+    } catch (requestError) {
+      setConsultErrorMessage(requestError.message)
+    } finally {
+      setIsSavingConsultation(false)
+    }
+  }
+
+  const openConsultationForAppointment = (appointmentId) => {
+    setConsultAppointmentId(appointmentId)
+    setActivePage('Consultation Details')
+  }
+
   return (
     <main className="dr-screen">
       <section className="dr-shell">
@@ -324,11 +439,11 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
             <div className="dr-grid">
               <article className="dr-card">
                 <h3>Today’s Appointments</h3>
-                <p className="dr-count">{TODAY_APPOINTMENTS.length} appointments scheduled</p>
+                <p className="dr-count">{todayAppointments.length} appointments scheduled</p>
                 <ul className="dr-list">
-                  {TODAY_APPOINTMENTS.map((item) => (
-                    <li key={`${item.time}-${item.pet}`}>
-                      <strong>{item.time}</strong>
+                  {todayAppointments.map((item) => (
+                    <li key={item.id}>
+                      <strong>{item.time || '--:--'}</strong>
                       <span>
                         {item.pet} - {item.owner}
                       </span>
@@ -351,7 +466,12 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
               <article className="dr-card dr-quick-card">
                 <h3>Quick Actions</h3>
                 <div className="dr-quick-actions">
-                  <button type="button">Start Consultation</button>
+                  <button
+                    type="button"
+                    onClick={() => openConsultationForAppointment(todayAppointments[0]?.id || consultationAppointments[0]?.id)}
+                  >
+                    Start Consultation
+                  </button>
                   <button type="button">View Records</button>
                 </div>
               </article>
@@ -398,64 +518,134 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                       </p>
                     </div>
                     <span className={`dr-status dr-status-${item.status.toLowerCase()}`}>{item.status}</span>
-                    <button type="button">Open Details</button>
+                    <button type="button" onClick={() => openConsultationForAppointment(item.id)}>
+                      Open Details
+                    </button>
                   </li>
                 ))}
               </ul>
             </div>
-          ) : activePage === 'Consultation Page' ? (
+          ) : activePage === 'Consultation Details' ? (
             <div className="dr-consultation">
               <article className="dr-card">
                 <h3>Appointment Details / Consultation</h3>
-                <div className="dr-info-grid">
-                  <p>
-                    <strong>Pet Name:</strong> {CONSULTATION_CASE.petName}
-                  </p>
-                  <p>
-                    <strong>Breed:</strong> {CONSULTATION_CASE.breed}
-                  </p>
-                  <p>
-                    <strong>Age:</strong> {CONSULTATION_CASE.age}
-                  </p>
-                  <p>
-                    <strong>Owner Name:</strong> {CONSULTATION_CASE.ownerName}
-                  </p>
-                  <p>
-                    <strong>Owner Contact:</strong> {CONSULTATION_CASE.ownerContact}
-                  </p>
-                </div>
+                {selectedConsultation ? (
+                  <>
+                    <label className="dr-consult-select">
+                      Select Appointment
+                      <select
+                        value={selectedConsultation.id}
+                        onChange={(event) => setConsultAppointmentId(event.target.value)}
+                      >
+                        {consultationAppointments.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.date} {item.time ? `- ${item.time}` : ''} | {item.pet} | {item.owner}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="dr-info-grid">
+                      <p>
+                        <strong>Appointment ID:</strong> {selectedConsultation.id}
+                      </p>
+                      <p>
+                        <strong>Date:</strong> {formatConsultDate(selectedConsultation.date)}
+                      </p>
+                      <p>
+                        <strong>Time:</strong> {selectedConsultation.time || '--:--'}
+                      </p>
+                      <p>
+                        <strong>Status:</strong> {selectedConsultation.status}
+                      </p>
+                      <p>
+                        <strong>Pet Name:</strong> {selectedConsultation.pet}
+                      </p>
+                      <p>
+                        <strong>Owner Name:</strong> {selectedConsultation.owner}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <p className="dr-form-error">No appointment available for consultation.</p>
+                )}
               </article>
 
-              <article className="dr-card dr-consult-form">
+              <form
+                className="dr-card dr-consult-form"
+                onSubmit={handleConsultationSubmit}
+                key={selectedConsultation?.id || 'consult-form'}
+              >
                 <label>
                   Symptoms / Reason for Visit
-                  <textarea defaultValue={`${CONSULTATION_CASE.symptoms}\n${CONSULTATION_CASE.reason}`} rows="4" />
+                  <textarea
+                    name="symptoms"
+                    defaultValue={selectedConsultation?.reason || `${CONSULTATION_CASE.symptoms}\n${CONSULTATION_CASE.reason}`}
+                    rows="3"
+                  />
                 </label>
-                <label>
-                  Add Diagnosis
-                  <textarea placeholder="Enter diagnosis..." rows="3" />
-                </label>
-                <label>
-                  Add Treatment Notes
-                  <textarea placeholder="Enter treatment notes..." rows="3" />
-                </label>
-                <label>
-                  Add Prescription
-                  <textarea placeholder="Enter prescription details..." rows="3" />
-                </label>
-
-                <fieldset className="dr-mark-group">
-                  <legend>Mark Appointment</legend>
+                <div className="dr-consult-grid">
                   <label>
-                    <input type="radio" name="appointment-mark" defaultChecked value="completed" />
-                    Completed
+                    Temperature
+                    <input name="temperature" type="text" placeholder="e.g. 101.2 F" />
                   </label>
                   <label>
-                    <input type="radio" name="appointment-mark" value="follow-up" />
-                    Follow-up needed
+                    Weight
+                    <input name="weight" type="text" placeholder="e.g. 24 kg" />
                   </label>
-                </fieldset>
-              </article>
+                  <label>
+                    Heart Rate
+                    <input name="heartRate" type="text" placeholder="e.g. 88 bpm" />
+                  </label>
+                  <label>
+                    Respiratory Rate
+                    <input name="respiratoryRate" type="text" placeholder="e.g. 24 /min" />
+                  </label>
+                </div>
+                <label>
+                  Clinical Findings
+                  <textarea name="clinicalFindings" placeholder="Enter examination findings..." rows="3" />
+                </label>
+                <label>
+                  Diagnosis
+                  <textarea name="diagnosis" placeholder="Enter diagnosis..." rows="3" required />
+                </label>
+                <label>
+                  Treatment Plan / Notes
+                  <textarea name="treatmentPlan" placeholder="Enter treatment plan..." rows="3" required />
+                </label>
+                <label>
+                  Prescription
+                  <textarea name="prescription" placeholder="Medicine, dosage, and duration..." rows="3" required />
+                </label>
+                <div className="dr-consult-grid">
+                  <label>
+                    Follow-up Date
+                    <input name="followUpDate" type="date" />
+                  </label>
+                  <label>
+                    Consultation Outcome
+                    <select name="consultOutcome" defaultValue="Completed">
+                      <option value="Completed">Completed</option>
+                      <option value="Follow-up needed">Follow-up needed</option>
+                      <option value="Confirmed">Keep Confirmed</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="dr-consult-actions">
+                  <button type="submit" disabled={isSavingConsultation || !selectedConsultation}>
+                    {isSavingConsultation ? 'Saving...' : 'Save Consultation'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivePage('Appointments Page')}
+                    disabled={isSavingConsultation}
+                  >
+                    Back to Appointments
+                  </button>
+                </div>
+                {consultStatusMessage ? <p className="dr-form-success">{consultStatusMessage}</p> : null}
+                {consultErrorMessage ? <p className="dr-form-error">{consultErrorMessage}</p> : null}
+              </form>
             </div>
           ) : activePage === 'Pet Medical Records Page' ? (
             <div className="dr-records">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import '../css/dashboard.css'
-import { getUserProfile, updateUserProfile } from '../../../lib/api'
+import { createAppointment, getUserProfile, listAppointments, updateAppointmentById, updateUserProfile } from '../../../lib/api'
 
 const STAFF_PAGES = [
   'Dashboard',
@@ -98,13 +98,6 @@ const STAFF_QUICK_ACTIONS = [
   { title: 'Generate Invoice', text: 'Create bill and move to payment flow.' },
 ]
 
-const STAFF_APPOINTMENTS = [
-  { id: 'AP-1001', date: '2026-03-18', doctor: 'Dr. Sarah Khan', status: 'Pending', petOwner: 'Jonathan Smith' },
-  { id: 'AP-1002', date: '2026-03-18', doctor: 'Dr. Michael Reed', status: 'Confirmed', petOwner: 'Emma Davis' },
-  { id: 'AP-1003', date: '2026-03-19', doctor: 'Dr. Sarah Khan', status: 'Completed', petOwner: 'Noah Patel' },
-  { id: 'AP-1004', date: '2026-03-20', doctor: 'Dr. Olivia Grant', status: 'Cancelled', petOwner: 'Sophia Lee' },
-]
-
 const PET_OWNERS = [
   { id: 'OWN-1001', name: 'Jonathan Smith', phone: '+1 (555) 222-9011', pets: 2, status: 'Active' },
   { id: 'OWN-1002', name: 'Emma Davis', phone: '+1 (555) 103-7724', pets: 1, status: 'Active' },
@@ -169,20 +162,46 @@ export default function StaffDashboard({ currentUser, onLogout }) {
   const [filterDate, setFilterDate] = useState('')
   const [filterDoctor, setFilterDoctor] = useState('All')
   const [filterStatus, setFilterStatus] = useState('All')
+  const [appointments, setAppointments] = useState([])
+  const [appointmentError, setAppointmentError] = useState('')
+  const [appointmentStatusMessage, setAppointmentStatusMessage] = useState('')
   const [profile, setProfile] = useState(currentUser || null)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [profileStatus, setProfileStatus] = useState('')
   const [profileError, setProfileError] = useState('')
   const activeContent = STAFF_CONTENT[activePage] || STAFF_CONTENT.Dashboard
-  const todayDashboardDate = '2026-03-18'
-  const todayAppointments = STAFF_APPOINTMENTS.filter((item) => item.date === todayDashboardDate)
+  const todayDashboardDate = new Date().toISOString().slice(0, 10)
+  const todayAppointments = appointments.filter((item) => item.appointmentDate === todayDashboardDate)
   const pendingDashboardAppointments = todayAppointments.filter((item) => item.status === 'Pending')
-  const filteredAppointments = STAFF_APPOINTMENTS.filter((item) => {
-    const dateMatch = !filterDate || item.date === filterDate
-    const doctorMatch = filterDoctor === 'All' || item.doctor === filterDoctor
+  const filteredAppointments = appointments.filter((item) => {
+    const dateMatch = !filterDate || item.appointmentDate === filterDate
+    const doctorMatch = filterDoctor === 'All' || item.doctorName === filterDoctor
     const statusMatch = filterStatus === 'All' || item.status === filterStatus
     return dateMatch && doctorMatch && statusMatch
   })
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadAppointments = async () => {
+      try {
+        const response = await listAppointments()
+        if (!cancelled) {
+          setAppointments(Array.isArray(response?.appointments) ? response.appointments : [])
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setAppointments([])
+          setAppointmentError(requestError.message)
+        }
+      }
+    }
+
+    loadAppointments()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -237,6 +256,89 @@ export default function StaffDashboard({ currentUser, onLogout }) {
       setProfileError(requestError.message)
     } finally {
       setIsSavingProfile(false)
+    }
+  }
+
+  const handleAppointmentUpdate = async (appointmentId, updates) => {
+    try {
+      setAppointmentError('')
+      setAppointmentStatusMessage('')
+      const response = await updateAppointmentById(appointmentId, updates)
+      const updated = response?.appointment
+      if (updated) {
+        setAppointments((currentItems) => currentItems.map((item) => (item.id === updated.id ? updated : item)))
+      }
+      setAppointmentStatusMessage('Appointment updated successfully.')
+    } catch (requestError) {
+      setAppointmentError(requestError.message)
+    }
+  }
+
+  const handleRescheduleAppointment = async (appointment) => {
+    const newDate = window.prompt('Enter new date (YYYY-MM-DD):', appointment.appointmentDate || '')
+    if (!newDate) {
+      return
+    }
+    const newTime = window.prompt('Enter new time (HH:MM):', appointment.appointmentTime || '')
+    if (!newTime) {
+      return
+    }
+    await handleAppointmentUpdate(appointment.id, {
+      appointmentDate: newDate,
+      appointmentTime: newTime,
+      status: 'Pending',
+    })
+  }
+
+  const handleAssignDoctor = async (appointment) => {
+    const newDoctor = window.prompt('Enter doctor name:', appointment.doctorName || 'Dr. Sarah Khan')
+    if (!newDoctor) {
+      return
+    }
+    await handleAppointmentUpdate(appointment.id, { doctorName: newDoctor })
+  }
+
+  const handleAddWalkIn = async () => {
+    const petName = window.prompt('Pet name:')
+    if (!petName) {
+      return
+    }
+    const ownerName = window.prompt('Owner name (optional):') || ''
+    const doctorName = window.prompt('Doctor name:', 'Dr. Sarah Khan')
+    if (!doctorName) {
+      return
+    }
+    const appointmentDate = window.prompt('Date (YYYY-MM-DD):', new Date().toISOString().slice(0, 10))
+    if (!appointmentDate) {
+      return
+    }
+    const appointmentTime = window.prompt('Time (HH:MM):', '10:00')
+    if (!appointmentTime) {
+      return
+    }
+    const reason = window.prompt('Reason for visit:', 'Walk-in consultation')
+    if (!reason) {
+      return
+    }
+
+    try {
+      setAppointmentError('')
+      setAppointmentStatusMessage('')
+      const response = await createAppointment({
+        ownerName,
+        petName,
+        doctorName,
+        appointmentDate,
+        appointmentTime,
+        reason,
+      })
+      const created = response?.appointment
+      if (created) {
+        setAppointments((currentItems) => [created, ...currentItems])
+      }
+      setAppointmentStatusMessage('Walk-in appointment added.')
+    } catch (requestError) {
+      setAppointmentError(requestError.message)
     }
   }
 
@@ -303,7 +405,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                       <div>
                         <strong>{item.id}</strong>
                         <p>
-                          {item.petOwner} | {item.doctor}
+                          {item.ownerName || item.petName} | {item.doctorName}
                         </p>
                       </div>
                       <span className={`st-history-status st-history-${item.status.toLowerCase()}`}>{item.status}</span>
@@ -321,10 +423,12 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                       <div>
                         <strong>{item.id}</strong>
                         <p>
-                          {item.petOwner} requested confirmation
+                          {item.ownerName || item.petName} requested confirmation
                         </p>
                       </div>
-                      <button type="button">Review</button>
+                      <button type="button" onClick={() => handleAppointmentUpdate(item.id, { status: 'Confirmed' })}>
+                        Review
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -334,9 +438,11 @@ export default function StaffDashboard({ currentUser, onLogout }) {
             <div className="st-appointments">
               <article className="st-card st-quick-card">
                 <h3>Add Walk-in Appointment</h3>
-                <button type="button" className="st-plain-btn">
+                <button type="button" className="st-plain-btn" onClick={handleAddWalkIn}>
                   Add Walk-in Appointment
                 </button>
+                {appointmentStatusMessage ? <p className="st-form-success">{appointmentStatusMessage}</p> : null}
+                {appointmentError ? <p className="st-form-error">{appointmentError}</p> : null}
               </article>
 
               <article className="st-card">
@@ -376,17 +482,25 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                       <div>
                         <strong>{item.id}</strong>
                         <p>
-                          {item.date} | {item.petOwner}
+                          {item.appointmentDate} | {item.ownerName || item.petName}
                         </p>
                         <p>
-                          {item.doctor} | {item.status}
+                          {item.doctorName} | {item.status}
                         </p>
                       </div>
                       <div className="st-appointment-actions">
-                        <button type="button">Confirm</button>
-                        <button type="button">Cancel</button>
-                        <button type="button">Reschedule</button>
-                        <button type="button">Assign Doctor</button>
+                        <button type="button" onClick={() => handleAppointmentUpdate(item.id, { status: 'Confirmed' })}>
+                          Confirm
+                        </button>
+                        <button type="button" onClick={() => handleAppointmentUpdate(item.id, { status: 'Cancelled' })}>
+                          Cancel
+                        </button>
+                        <button type="button" onClick={() => handleRescheduleAppointment(item)}>
+                          Reschedule
+                        </button>
+                        <button type="button" onClick={() => handleAssignDoctor(item)}>
+                          Assign Doctor
+                        </button>
                       </div>
                     </li>
                   ))}

@@ -381,7 +381,7 @@ function AppointmentHistoryPage({ appointments }) {
   )
 }
 
-function BookAppointmentPage({ pets, onViewHistory, onAppointmentBooked }) {
+function BookAppointmentPage({ pets, ownerName, onViewHistory, onAppointmentBooked }) {
   const [statusMessage, setStatusMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -401,6 +401,7 @@ function BookAppointmentPage({ pets, onViewHistory, onAppointmentBooked }) {
     }
 
     const body = {
+      ownerName: String(ownerName || '').trim(),
       petName: String(formData.get('petName') || '').trim(),
       doctorName: String(formData.get('doctorName') || '').trim(),
       appointmentDate: String(formData.get('appointmentDate') || '').trim(),
@@ -868,6 +869,7 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
               ) : activePage === 'Book Appointment' ? (
                 <BookAppointmentPage
                   pets={pets}
+                  ownerName={profile?.name || currentUser?.name || ''}
                   onViewHistory={() => setActivePage('Appointment History')}
                   onAppointmentBooked={handleAppointmentBooked}
                 />

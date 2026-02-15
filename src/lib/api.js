@@ -48,6 +48,13 @@ export function listAppointments() {
   return request('/api/appointments')
 }
 
+export function updateAppointmentById(appointmentId, body) {
+  return request(`/api/appointments/${appointmentId}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
 export function listPets() {
   return request('/api/pets')
 }
@@ -72,6 +79,13 @@ export function getUserProfile(userId) {
 export function updateUserProfile(userId, body) {
   return request(`/api/users/${userId}/profile`, {
     method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export function createConsultation(body) {
+  return request('/api/consultations', {
+    method: 'POST',
     body: JSON.stringify(body),
   })
 }
