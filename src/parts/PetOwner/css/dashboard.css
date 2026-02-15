@@ -375,12 +375,168 @@
   color: #8c6700;
 }
 
+.po-status-confirmed {
+  background: #d5ecff;
+  color: #1f5d8b;
+}
+
 .po-status-cancelled {
   background: #ffd9d9;
   color: #9e2e2e;
 }
 
 .po-history-list button {
+  justify-self: start;
+  border: 0;
+  border-radius: 8px;
+  background: #7f6420;
+  color: #fff;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.po-appointment-details {
+  border: 1px solid rgba(126, 94, 34, 0.22);
+}
+
+.po-book-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.po-book-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.po-book-grid label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.po-book-grid input,
+.po-book-grid select,
+.po-book-grid textarea {
+  border: 1px solid rgba(126, 94, 34, 0.26);
+  border-radius: 8px;
+  background: rgba(255, 248, 229, 0.85);
+  min-height: 34px;
+  padding: 0 10px;
+  font: inherit;
+  color: #5b4a31;
+}
+
+.po-book-grid textarea {
+  min-height: auto;
+  padding: 10px;
+  resize: vertical;
+}
+
+.po-book-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.po-form-success {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1f6a47;
+}
+
+.po-form-error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8b3131;
+}
+
+.po-medical-layout {
+  display: grid;
+  gap: 14px;
+}
+
+.po-medical-summary {
+  display: grid;
+  gap: 8px;
+}
+
+.po-medical-stat {
+  border-radius: 10px;
+  border: 1px solid rgba(126, 94, 34, 0.18);
+  background: rgba(255, 246, 219, 0.8);
+  padding: 10px;
+}
+
+.po-medical-stat p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.po-medical-stat strong {
+  margin-top: 4px;
+  display: block;
+  font-size: 16px;
+}
+
+.po-medical-filters {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.po-medical-filters label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.po-medical-filters input,
+.po-medical-filters select {
+  border: 1px solid rgba(126, 94, 34, 0.26);
+  border-radius: 8px;
+  background: rgba(255, 248, 229, 0.85);
+  min-height: 34px;
+  padding: 0 10px;
+  font: inherit;
+  color: #5b4a31;
+}
+
+.po-medical-visit-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.po-medical-visit-list li {
+  border-radius: 10px;
+  background: rgba(255, 246, 219, 0.8);
+  border: 1px solid rgba(126, 94, 34, 0.18);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.po-medical-visit-list strong {
+  font-size: 13px;
+}
+
+.po-medical-visit-list p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.po-medical-visit-list button {
   justify-self: start;
   border: 0;
   border-radius: 8px;
@@ -433,6 +589,149 @@
   text-transform: uppercase;
   min-height: 36px;
   padding: 0 14px;
+  cursor: pointer;
+}
+
+.po-record-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.po-record-download {
+  margin-top: 0;
+}
+
+.po-record-secondary {
+  border: 1px solid rgba(126, 94, 34, 0.28);
+  border-radius: 10px;
+  background: rgba(255, 248, 229, 0.88);
+  color: #6a552f;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 36px;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.po-profile-layout {
+  display: grid;
+  gap: 14px;
+}
+
+.po-profile-summary {
+  display: grid;
+  gap: 12px;
+  align-items: center;
+}
+
+.po-profile-avatar {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #8d6d1d;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.po-profile-summary h4 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.po-profile-summary p {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.po-profile-badge {
+  width: fit-content;
+  border-radius: 999px;
+  background: rgba(127, 100, 32, 0.18);
+  color: #6a552f;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.po-profile-form {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.po-profile-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6a552f;
+}
+
+.po-profile-form input,
+.po-profile-form select {
+  border: 1px solid rgba(126, 94, 34, 0.26);
+  border-radius: 8px;
+  background: rgba(255, 248, 229, 0.85);
+  min-height: 34px;
+  padding: 0 10px;
+  font: inherit;
+  color: #5b4a31;
+}
+
+.po-profile-save {
+  margin-top: 12px;
+  border: 0;
+  border-radius: 10px;
+  background: #7f6420;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  min-height: 36px;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.po-pref-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.po-pref-list label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.po-pref-list input {
+  accent-color: #8d6d1d;
+}
+
+.po-security-actions {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.po-security-actions button {
+  border: 0;
+  border-radius: 8px;
+  background: #7f6420;
+  color: #fff;
+  min-height: 34px;
+  padding: 0 10px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -491,6 +790,50 @@
 
   .po-mypets-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .po-book-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .po-book-full {
+    grid-column: 1 / -1;
+  }
+
+  .po-medical-layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .po-medical-summary {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .po-medical-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .po-medical-visit-list li {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .po-profile-layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .po-profile-summary {
+    grid-column: 1 / -1;
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .po-profile-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .po-profile-full {
+    grid-column: 1 / -1;
   }
 
   .po-history-head {

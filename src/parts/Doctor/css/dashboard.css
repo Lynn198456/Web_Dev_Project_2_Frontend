@@ -664,6 +664,30 @@
   color: #234146;
 }
 
+.dr-profile-grid select {
+  border: 1px solid rgba(77, 125, 133, 0.35);
+  border-radius: 8px;
+  background: #f7fbfc;
+  min-height: 36px;
+  padding: 0 10px;
+  font: inherit;
+  color: #234146;
+}
+
+.dr-form-success {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1f6a47;
+}
+
+.dr-form-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8b3131;
+}
+
 .dr-security-actions {
   margin-top: 10px;
   display: flex;

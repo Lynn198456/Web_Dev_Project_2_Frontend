@@ -442,6 +442,20 @@
   color: #294741;
 }
 
+.st-form-success {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1f6a47;
+}
+
+.st-form-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8b3131;
+}
+
 .st-toggle-list {
   margin-top: 10px;
   display: grid;

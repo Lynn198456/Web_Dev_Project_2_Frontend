@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import '../css/dashboard.css'
+import { getUserProfile, updateUserProfile } from '../../../lib/api'
 
 const DOCTOR_PAGES = [
   'Doctor Dashboard',
@@ -186,13 +187,17 @@ const PAGE_CONTENT = {
   },
 }
 
-export default function DoctorDashboard({ onLogout }) {
+export default function DoctorDashboard({ currentUser, onLogout }) {
   const [activePage, setActivePage] = useState('Doctor Dashboard')
   const [appointmentView, setAppointmentView] = useState('Today')
   const [appointmentStatus, setAppointmentStatus] = useState('All')
   const [appointmentDate, setAppointmentDate] = useState('')
   const [recordSearch, setRecordSearch] = useState('')
   const [doctorPhotoPreview, setDoctorPhotoPreview] = useState('')
+  const [profile, setProfile] = useState(currentUser || null)
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [profileStatus, setProfileStatus] = useState('')
+  const [profileError, setProfileError] = useState('')
   const content = PAGE_CONTENT[activePage] || PAGE_CONTENT['Doctor Dashboard']
   const filteredAppointments = APPOINTMENT_LOGS.filter((item) => {
     const inView = item.bucket === appointmentView
@@ -220,6 +225,33 @@ export default function DoctorDashboard({ onLogout }) {
     }
   }, [doctorPhotoPreview])
 
+  useEffect(() => {
+    let cancelled = false
+
+    const loadProfile = async () => {
+      if (!currentUser?.id) {
+        setProfile(currentUser || null)
+        return
+      }
+
+      try {
+        const response = await getUserProfile(currentUser.id)
+        if (!cancelled) {
+          setProfile(response?.user || currentUser)
+        }
+      } catch (_error) {
+        if (!cancelled) {
+          setProfile(currentUser || null)
+        }
+      }
+    }
+
+    loadProfile()
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser])
+
   const handlePhotoChange = (event) => {
     const file = event.target.files?.[0]
     if (!file) {
@@ -229,6 +261,35 @@ export default function DoctorDashboard({ onLogout }) {
       URL.revokeObjectURL(doctorPhotoPreview)
     }
     setDoctorPhotoPreview(URL.createObjectURL(file))
+  }
+
+  const handleProfileSubmit = async (event) => {
+    event.preventDefault()
+    if (!profile?.id) {
+      setProfileError('Please log in again to update profile.')
+      return
+    }
+
+    const formData = new FormData(event.currentTarget)
+    const updates = {
+      name: String(formData.get('name') || '').trim(),
+      phone: String(formData.get('phone') || '').trim(),
+      address: String(formData.get('address') || '').trim(),
+      preferredContact: String(formData.get('preferredContact') || 'Email'),
+    }
+
+    try {
+      setIsSavingProfile(true)
+      setProfileError('')
+      setProfileStatus('')
+      const response = await updateUserProfile(profile.id, updates)
+      setProfile(response?.user || profile)
+      setProfileStatus('Profile updated successfully.')
+    } catch (requestError) {
+      setProfileError(requestError.message)
+    } finally {
+      setIsSavingProfile(false)
+    }
   }
 
   return (
@@ -580,10 +641,14 @@ export default function DoctorDashboard({ onLogout }) {
                     <span>No photo selected</span>
                   )}
                 </div>
-                <div className="dr-profile-grid">
+                <form
+                  className="dr-profile-grid"
+                  onSubmit={handleProfileSubmit}
+                  key={`${profile?.id || 'no-id'}-${profile?.name || ''}`}
+                >
                   <label>
                     Full Name
-                    <input type="text" defaultValue="Dr. Sarah Khan" />
+                    <input name="name" type="text" defaultValue={profile?.name || ''} required />
                   </label>
                   <label>
                     Profile Photo
@@ -591,15 +656,23 @@ export default function DoctorDashboard({ onLogout }) {
                   </label>
                   <label>
                     Phone Number
-                    <input type="tel" defaultValue="+1 (555) 102-3344" />
+                    <input name="phone" type="tel" defaultValue={profile?.phone || ''} />
                   </label>
                   <label>
                     Email Address
-                    <input type="email" defaultValue="dr.sarah@pawever.com" />
+                    <input type="email" value={profile?.email || ''} readOnly />
                   </label>
                   <label className="dr-full">
                     Address
-                    <input type="text" defaultValue="12 Wellness Avenue, San Francisco, CA" />
+                    <input name="address" type="text" defaultValue={profile?.address || ''} />
+                  </label>
+                  <label>
+                    Preferred Contact
+                    <select name="preferredContact" defaultValue={profile?.preferredContact || 'Email'}>
+                      <option>Email</option>
+                      <option>Phone</option>
+                      <option>SMS</option>
+                    </select>
                   </label>
                   <label>
                     Working Days
@@ -613,8 +686,12 @@ export default function DoctorDashboard({ onLogout }) {
                     Break Time
                     <input type="text" defaultValue="12:00 PM - 01:00 PM" />
                   </label>
-                </div>
-                <button type="button">Save Profile</button>
+                  <button type="submit" disabled={isSavingProfile}>
+                    {isSavingProfile ? 'Saving...' : 'Save Profile'}
+                  </button>
+                </form>
+                {profileStatus ? <p className="dr-form-success">{profileStatus}</p> : null}
+                {profileError ? <p className="dr-form-error">{profileError}</p> : null}
               </article>
 
               <article className="dr-card">

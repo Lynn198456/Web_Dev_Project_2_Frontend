@@ -36,3 +36,42 @@ export function loginUser(body) {
     body: JSON.stringify(body),
   })
 }
+
+export function createAppointment(body) {
+  return request('/api/appointments', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export function listAppointments() {
+  return request('/api/appointments')
+}
+
+export function listPets() {
+  return request('/api/pets')
+}
+
+export function createPet(body) {
+  return request('/api/pets', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export function deletePetById(petId) {
+  return request(`/api/pets/${petId}`, {
+    method: 'DELETE',
+  })
+}
+
+export function getUserProfile(userId) {
+  return request(`/api/users/${userId}/profile`)
+}
+
+export function updateUserProfile(userId, body) {
+  return request(`/api/users/${userId}/profile`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}

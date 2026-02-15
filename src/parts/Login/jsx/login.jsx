@@ -24,7 +24,7 @@ export default function Login({ onBack, onContinue }) {
       setIsSubmitting(true)
 
       const response = await loginUser({ email, password, role })
-      onContinue(response?.user?.role || role)
+      onContinue(response?.user || { role })
     } catch (requestError) {
       setError(requestError.message)
     } finally {

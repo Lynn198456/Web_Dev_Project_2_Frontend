@@ -10,6 +10,7 @@ import StaffDashboard from './parts/Staff/jsx/dashboard'
 export default function App() {
   const [screen, setScreen] = useState('options')
   const [role, setRole] = useState('pet-owner')
+  const [currentUser, setCurrentUser] = useState(null)
 
   const goToScreen = (nextScreen) => {
     setScreen(nextScreen)
@@ -23,8 +24,9 @@ export default function App() {
     currentPage = (
       <Login
         onBack={() => goToScreen('options')}
-        onContinue={(selectedRole) => {
-          const nextRole = selectedRole || 'pet-owner'
+        onContinue={(user) => {
+          const nextRole = user?.role || 'pet-owner'
+          setCurrentUser(user || null)
           setRole(nextRole)
           goToScreen(
             nextRole === 'pet-owner'
@@ -44,8 +46,9 @@ export default function App() {
     currentPage = (
       <Register
         onBack={() => goToScreen('options')}
-        onCreate={(selectedRole) => {
-          const nextRole = selectedRole || 'pet-owner'
+        onCreate={(user) => {
+          const nextRole = user?.role || 'pet-owner'
+          setCurrentUser(user || null)
           setRole(nextRole)
           goToScreen(
             nextRole === 'pet-owner'
@@ -62,15 +65,40 @@ export default function App() {
   }
 
   if (screen === 'dashboard') {
-    currentPage = <PetOwnerDashboard role={role} onLogout={() => goToScreen('options')} />
+    currentPage = (
+      <PetOwnerDashboard
+        role={role}
+        currentUser={currentUser}
+        onLogout={() => {
+          setCurrentUser(null)
+          goToScreen('options')
+        }}
+      />
+    )
   }
 
   if (screen === 'doctor-dashboard') {
-    currentPage = <DoctorDashboard onLogout={() => goToScreen('options')} />
+    currentPage = (
+      <DoctorDashboard
+        currentUser={currentUser}
+        onLogout={() => {
+          setCurrentUser(null)
+          goToScreen('options')
+        }}
+      />
+    )
   }
 
   if (screen === 'staff-dashboard') {
-    currentPage = <StaffDashboard onLogout={() => goToScreen('options')} />
+    currentPage = (
+      <StaffDashboard
+        currentUser={currentUser}
+        onLogout={() => {
+          setCurrentUser(null)
+          goToScreen('options')
+        }}
+      />
+    )
   }
 
   return currentPage

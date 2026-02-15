@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import '../css/dashboard.css'
+import { getUserProfile, updateUserProfile } from '../../../lib/api'
 
 const STAFF_PAGES = [
   'Dashboard',
@@ -163,11 +164,15 @@ const PAYMENT_HISTORY = [
   { invoice: 'INV-3004', owner: 'Sophia Lee', pet: 'Rocky', amount: '$220', method: 'Card', status: 'Paid' },
 ]
 
-export default function StaffDashboard({ onLogout }) {
+export default function StaffDashboard({ currentUser, onLogout }) {
   const [activePage, setActivePage] = useState('Dashboard')
   const [filterDate, setFilterDate] = useState('')
   const [filterDoctor, setFilterDoctor] = useState('All')
   const [filterStatus, setFilterStatus] = useState('All')
+  const [profile, setProfile] = useState(currentUser || null)
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [profileStatus, setProfileStatus] = useState('')
+  const [profileError, setProfileError] = useState('')
   const activeContent = STAFF_CONTENT[activePage] || STAFF_CONTENT.Dashboard
   const todayDashboardDate = '2026-03-18'
   const todayAppointments = STAFF_APPOINTMENTS.filter((item) => item.date === todayDashboardDate)
@@ -178,6 +183,62 @@ export default function StaffDashboard({ onLogout }) {
     const statusMatch = filterStatus === 'All' || item.status === filterStatus
     return dateMatch && doctorMatch && statusMatch
   })
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadProfile = async () => {
+      if (!currentUser?.id) {
+        setProfile(currentUser || null)
+        return
+      }
+
+      try {
+        const response = await getUserProfile(currentUser.id)
+        if (!cancelled) {
+          setProfile(response?.user || currentUser)
+        }
+      } catch (_error) {
+        if (!cancelled) {
+          setProfile(currentUser || null)
+        }
+      }
+    }
+
+    loadProfile()
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser])
+
+  const handleProfileSubmit = async (event) => {
+    event.preventDefault()
+    if (!profile?.id) {
+      setProfileError('Please log in again to update profile.')
+      return
+    }
+
+    const formData = new FormData(event.currentTarget)
+    const updates = {
+      name: String(formData.get('name') || '').trim(),
+      phone: String(formData.get('phone') || '').trim(),
+      address: String(formData.get('address') || '').trim(),
+      preferredContact: String(formData.get('preferredContact') || 'Email'),
+    }
+
+    try {
+      setIsSavingProfile(true)
+      setProfileError('')
+      setProfileStatus('')
+      const response = await updateUserProfile(profile.id, updates)
+      setProfile(response?.user || profile)
+      setProfileStatus('Profile updated successfully.')
+    } catch (requestError) {
+      setProfileError(requestError.message)
+    } finally {
+      setIsSavingProfile(false)
+    }
+  }
 
   return (
     <main className="st-screen">
@@ -533,12 +594,12 @@ export default function StaffDashboard({ onLogout }) {
             <div className="st-profile-layout">
               <article className="st-card st-profile-summary">
                 <div className="st-profile-avatar" aria-hidden="true">
-                  SK
+                  {profile?.name?.slice(0, 2).toUpperCase() || 'ST'}
                 </div>
                 <div className="st-profile-meta">
-                  <h3>Sarah Kim</h3>
-                  <p>Front Desk Staff</p>
-                  <p>Employee ID: STF-2041</p>
+                  <h3>{profile?.name || 'Staff User'}</h3>
+                  <p>{profile?.role || 'staff'}</p>
+                  <p>Employee ID: {profile?.id || '-'}</p>
                 </div>
                 <div className="st-profile-badges">
                   <span>On Duty</span>
@@ -548,31 +609,41 @@ export default function StaffDashboard({ onLogout }) {
 
               <article className="st-card">
                 <h3>Personal Information</h3>
-                <div className="st-profile-form">
+                <form className="st-profile-form" onSubmit={handleProfileSubmit} key={`${profile?.id || 'no-id'}-${profile?.name || ''}`}>
                   <label>
                     Full Name
-                    <input type="text" defaultValue="Sarah Kim" />
+                    <input name="name" type="text" defaultValue={profile?.name || ''} required />
                   </label>
                   <label>
                     Phone Number
-                    <input type="tel" defaultValue="+1 (555) 771-2204" />
+                    <input name="phone" type="tel" defaultValue={profile?.phone || ''} />
                   </label>
                   <label>
                     Email Address
-                    <input type="email" defaultValue="sarah.kim@pawever.com" />
+                    <input type="email" value={profile?.email || ''} readOnly />
                   </label>
                   <label>
                     Role
-                    <input type="text" defaultValue="Front Desk Staff" />
+                    <input type="text" value={profile?.role || 'staff'} readOnly />
+                  </label>
+                  <label>
+                    Preferred Contact
+                    <select name="preferredContact" defaultValue={profile?.preferredContact || 'Email'}>
+                      <option>Email</option>
+                      <option>Phone</option>
+                      <option>SMS</option>
+                    </select>
                   </label>
                   <label className="st-profile-full">
                     Address
-                    <input type="text" defaultValue="245 Market Street, San Francisco, CA" />
+                    <input name="address" type="text" defaultValue={profile?.address || ''} />
                   </label>
-                </div>
-                <button type="button" className="st-plain-btn">
-                  Save Profile Changes
-                </button>
+                  <button type="submit" className="st-plain-btn" disabled={isSavingProfile}>
+                    {isSavingProfile ? 'Saving...' : 'Save Profile Changes'}
+                  </button>
+                </form>
+                {profileStatus ? <p className="st-form-success">{profileStatus}</p> : null}
+                {profileError ? <p className="st-form-error">{profileError}</p> : null}
               </article>
 
               <article className="st-card">

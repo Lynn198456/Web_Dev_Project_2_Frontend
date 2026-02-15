@@ -31,7 +31,7 @@ export default function Register({ onBack, onCreate }) {
       setIsSubmitting(true)
 
       const response = await registerUser({ name, email, password, role })
-      onCreate(response?.user?.role || role)
+      onCreate(response?.user || { role })
     } catch (requestError) {
       setError(requestError.message)
     } finally {
