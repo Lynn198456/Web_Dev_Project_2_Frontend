@@ -29,6 +29,7 @@
   padding: 12px;
   display: grid;
   gap: 10px;
+  align-content: start;
 }
 
 .st-sidebar h1 {
@@ -68,6 +69,7 @@
   background: #2f5d54;
   color: #fff;
   min-height: 36px;
+  padding: 0 14px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;

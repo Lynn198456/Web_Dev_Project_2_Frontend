@@ -4,11 +4,13 @@ import {
   changeUserPassword,
   createAppointment,
   createPet,
+  deleteAppointmentById,
   deletePetById,
   getUserProfile,
   listAppointments,
   listPets,
   listUsers,
+  updatePetById,
   updateUserProfile,
 } from '../../../lib/api'
 
@@ -155,7 +157,100 @@ function DashboardCards({ pets, appointments, onBookAppointment, onAddPet }) {
   )
 }
 
-function MyPetsPage({ pets, onAddNewPet, onDeletePet }) {
+function MyPetsPage({ pets, onAddNewPet, onDeletePet, onUpdatePet, onUploadPetPhoto }) {
+  const [editingPetId, setEditingPetId] = useState('')
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
+  const [editError, setEditError] = useState('')
+  const [uploadErrorPetId, setUploadErrorPetId] = useState('')
+  const [uploadErrorMessage, setUploadErrorMessage] = useState('')
+
+  const handleEditSubmit = async (event, petId) => {
+    event.preventDefault()
+    if (isSavingEdit) {
+      return
+    }
+
+    const formData = new FormData(event.currentTarget)
+    const updates = {
+      name: String(formData.get('name') || '').trim(),
+      breed: String(formData.get('breed') || '').trim(),
+      age: String(formData.get('age') || '').trim(),
+      weight: String(formData.get('weight') || '').trim(),
+      vaccinationStatus: String(formData.get('vaccinationStatus') || '').trim(),
+    }
+
+    if (!updates.name || !updates.breed || !updates.age || !updates.weight || !updates.vaccinationStatus) {
+      setEditError('All fields are required.')
+      return
+    }
+
+    try {
+      setIsSavingEdit(true)
+      setEditError('')
+      await onUpdatePet(petId, updates)
+      setEditingPetId('')
+    } catch (requestError) {
+      setEditError(requestError.message)
+    } finally {
+      setIsSavingEdit(false)
+    }
+  }
+
+  const handlePhotoChange = async (event, petId) => {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+    const toDataUrl = (inputFile) =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result || ''))
+        reader.onerror = () => reject(new Error('Unable to read photo file.'))
+        reader.readAsDataURL(inputFile)
+      })
+    const compressImage = (inputFile) =>
+      new Promise((resolve, reject) => {
+        const imageUrl = URL.createObjectURL(inputFile)
+        const image = new Image()
+        image.onload = () => {
+          const maxSize = 1200
+          const ratio = Math.min(1, maxSize / Math.max(image.width, image.height))
+          const width = Math.max(1, Math.round(image.width * ratio))
+          const height = Math.max(1, Math.round(image.height * ratio))
+          const canvas = document.createElement('canvas')
+          canvas.width = width
+          canvas.height = height
+          const context = canvas.getContext('2d')
+          if (!context) {
+            URL.revokeObjectURL(imageUrl)
+            reject(new Error('Unable to process photo file.'))
+            return
+          }
+          context.drawImage(image, 0, 0, width, height)
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.82)
+          URL.revokeObjectURL(imageUrl)
+          resolve(dataUrl)
+        }
+        image.onerror = () => {
+          URL.revokeObjectURL(imageUrl)
+          reject(new Error('Unable to process photo file.'))
+        }
+        image.src = imageUrl
+      })
+
+    try {
+      const photoDataUrl = file.size > 1024 * 1024 ? await compressImage(file) : await toDataUrl(file)
+      await onUploadPetPhoto(petId, photoDataUrl)
+      setUploadErrorPetId('')
+      setUploadErrorMessage('')
+    } catch (requestError) {
+      setUploadErrorPetId(petId)
+      setUploadErrorMessage(requestError?.message || 'Unable to upload pet photo.')
+    } finally {
+      event.currentTarget.value = ''
+    }
+  }
+
   return (
     <section className="po-mypets">
       <article className="po-card">
@@ -177,14 +272,71 @@ function MyPetsPage({ pets, onAddNewPet, onDeletePet }) {
           {pets.map((pet) => (
             <article key={pet.id} className="po-card po-mypet-card">
               <h3>{pet.name}</h3>
+              {pet.petPhoto ? (
+                <img className="po-pet-photo" src={pet.petPhoto} alt={`${pet.name} profile`} />
+              ) : (
+                <div className="po-pet-photo po-pet-photo-placeholder" aria-hidden="true">
+                  🐾
+                </div>
+              )}
 
               <div className="po-mypet-actions">
-                <button type="button">Edit Pet Information</button>
+                <button type="button" onClick={() => setEditingPetId((current) => (current === pet.id ? '' : pet.id))}>
+                  Edit Pet Information
+                </button>
                 <button type="button" onClick={() => void onDeletePet(pet.id)}>
                   Delete Pet
                 </button>
-                <button type="button">Upload Pet Photo</button>
+                <input
+                  id={`po-upload-${pet.id}`}
+                  type="file"
+                  accept="image/*"
+                  className="po-file-input-hidden"
+                  onChange={(event) => void handlePhotoChange(event, pet.id)}
+                />
+                <button type="button" onClick={() => document.getElementById(`po-upload-${pet.id}`)?.click()}>
+                  Upload Pet Photo
+                </button>
               </div>
+              {uploadErrorPetId === pet.id && uploadErrorMessage ? <p className="po-form-error">{uploadErrorMessage}</p> : null}
+
+              {editingPetId === pet.id ? (
+                <form className="po-book-grid" onSubmit={(event) => void handleEditSubmit(event, pet.id)}>
+                  <label>
+                    Name
+                    <input name="name" type="text" defaultValue={pet.name} required />
+                  </label>
+                  <label>
+                    Breed
+                    <input name="breed" type="text" defaultValue={pet.breed} required />
+                  </label>
+                  <label>
+                    Age
+                    <input name="age" type="text" defaultValue={pet.age} required />
+                  </label>
+                  <label>
+                    Weight
+                    <input name="weight" type="text" defaultValue={pet.weight} required />
+                  </label>
+                  <label>
+                    Vaccination Status
+                    <select name="vaccinationStatus" defaultValue={pet.vaccinationStatus} required>
+                      <option>Up to date</option>
+                      <option>Pending</option>
+                      <option>Booster due soon</option>
+                    </select>
+                  </label>
+                  <div className="po-mypet-actions">
+                    <button type="submit" disabled={isSavingEdit}>
+                      {isSavingEdit ? 'Saving...' : 'Save Changes'}
+                    </button>
+                    <button type="button" onClick={() => setEditingPetId('')} disabled={isSavingEdit}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+              {editingPetId === pet.id && editError ? <p className="po-form-error">{editError}</p> : null}
 
               <ul className="po-detail-list">
                 <li>
@@ -317,7 +469,7 @@ function formatAppointmentDate(value) {
   })
 }
 
-function AppointmentHistoryPage({ appointments, onBookAppointment }) {
+function AppointmentHistoryPage({ appointments, onBookAppointment, onDeleteAppointment }) {
   const [selectedAppointmentId, setSelectedAppointmentId] = useState(appointments[0]?.id || '')
 
   useEffect(() => {
@@ -358,9 +510,14 @@ function AppointmentHistoryPage({ appointments, onBookAppointment }) {
               <span>{formatAppointmentDate(item.appointmentDate || item.date)}</span>
               <strong>{item.doctorName}</strong>
               <em className={`po-status po-status-${String(item.status || 'pending').toLowerCase()}`}>{item.status}</em>
-              <button type="button" onClick={() => setSelectedAppointmentId(item.id)}>
-                View Details
-              </button>
+              <div className="po-mypet-actions">
+                <button type="button" onClick={() => setSelectedAppointmentId(item.id)}>
+                  View Details
+                </button>
+                <button type="button" onClick={() => void onDeleteAppointment(item.id)}>
+                  Delete
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -541,23 +698,142 @@ function BookAppointmentPage({ pets, doctors, ownerId, ownerName, onViewHistory,
 }
 
 function MedicalRecordsPage({ pets, appointments }) {
+  const [petFilter, setPetFilter] = useState('All Pets')
+  const [recordTypeFilter, setRecordTypeFilter] = useState('All Types')
+  const [searchTerm, setSearchTerm] = useState('')
   const [selectedRecordId, setSelectedRecordId] = useState(appointments[0]?.id || '')
+  const searchQuery = String(searchTerm || '').trim().toLowerCase()
+  const filteredRecords = appointments.filter((item) => {
+    if (petFilter !== 'All Pets' && item.petName !== petFilter) {
+      return false
+    }
+
+    const reason = String(item.reason || '').toLowerCase()
+    if (recordTypeFilter !== 'All Types' && !reason) {
+      return false
+    }
+
+    const typeMatches =
+      recordTypeFilter === 'All Types' ||
+      recordTypeFilter === 'Diagnosis' ||
+      recordTypeFilter === 'Prescription' ||
+      recordTypeFilter === 'Lab Result' ||
+      recordTypeFilter === 'Vaccination'
+
+    if (!typeMatches) {
+      return false
+    }
+
+    if (!searchQuery) {
+      return true
+    }
+
+    const haystack = [
+      item.id,
+      item.petName,
+      item.doctorName,
+      item.reason,
+      item.status,
+      item.appointmentDate,
+      item.appointmentTime,
+    ]
+      .map((value) => String(value || '').toLowerCase())
+      .join(' ')
+    return haystack.includes(searchQuery)
+  })
+
+  const selectedRecord = filteredRecords.find((item) => item.id === selectedRecordId) || null
+  const latestRecord = appointments[0] || null
 
   useEffect(() => {
     setSelectedRecordId((currentId) => {
-      if (!appointments.length) {
+      if (!filteredRecords.length) {
         return ''
       }
-      if (appointments.some((item) => item.id === currentId)) {
+      if (filteredRecords.some((item) => item.id === currentId)) {
         return currentId
       }
-      return appointments[0].id
+      return filteredRecords[0].id
     })
-  }, [appointments])
-
-  const selectedRecord = appointments.find((item) => item.id === selectedRecordId) || null
-  const latestRecord = appointments[0] || null
+  }, [filteredRecords])
   const pendingVaccine = pets.find((pet) => String(pet.vaccinationStatus || '').toLowerCase() !== 'up to date')
+
+  const buildRecordLines = (record) => [
+    'Pet Medical Record',
+    '',
+    `Appointment ID: ${record.id}`,
+    `Pet: ${record.petName}`,
+    `Doctor: ${record.doctorName}`,
+    `Date: ${formatAppointmentDate(record.appointmentDate || record.date)}`,
+    `Time: ${record.appointmentTime || '-'}`,
+    `Status: ${record.status || '-'}`,
+    `Reason: ${record.reason || '-'}`,
+  ]
+
+  const handleDownloadPdf = () => {
+    if (!selectedRecord) {
+      return
+    }
+
+    const sanitize = (value) => String(value || '').replace(/[^\x20-\x7E]/g, '?')
+    const escapePdf = (value) =>
+      sanitize(value)
+        .replace(/\\/g, '\\\\')
+        .replace(/\(/g, '\\(')
+        .replace(/\)/g, '\\)')
+    const lines = buildRecordLines(selectedRecord)
+    const textCommands = lines
+      .map((line, index) => `1 0 0 1 50 ${780 - index * 20} Tm (${escapePdf(line)}) Tj`)
+      .join('\n')
+    const stream = `BT\n/F1 12 Tf\n${textCommands}\nET`
+    let pdf = '%PDF-1.4\n'
+    const offsets = [0]
+    const addObj = (id, content) => {
+      offsets[id] = pdf.length
+      pdf += `${id} 0 obj\n${content}\nendobj\n`
+    }
+    addObj(1, '<< /Type /Catalog /Pages 2 0 R >>')
+    addObj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>')
+    addObj(
+      3,
+      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>'
+    )
+    addObj(4, `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`)
+    addObj(5, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
+    const startXref = pdf.length
+    pdf += `xref\n0 6\n0000000000 65535 f \n`
+    for (let i = 1; i <= 5; i += 1) {
+      pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`
+    }
+    pdf += `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${startXref}\n%%EOF`
+
+    const blob = new Blob([pdf], { type: 'application/pdf' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `medical-record-${selectedRecord.id}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  const handlePrintRecord = () => {
+    if (!selectedRecord) {
+      return
+    }
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      return
+    }
+    const lines = buildRecordLines(selectedRecord)
+    printWindow.document.write(
+      `<html><head><title>Medical Record</title></head><body><pre style="font-family: Arial, sans-serif; font-size: 14px;">${lines.join('\n')}</pre></body></html>`
+    )
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+  }
 
   return (
     <section className="po-mypets">
@@ -587,16 +863,18 @@ function MedicalRecordsPage({ pets, appointments }) {
           <div className="po-medical-filters">
             <label>
               Pet
-              <select defaultValue="All Pets">
+              <select value={petFilter} onChange={(event) => setPetFilter(event.target.value)}>
                 <option>All Pets</option>
                 {pets.map((pet) => (
-                  <option key={pet.id}>{pet.name}</option>
+                  <option key={pet.id} value={pet.name}>
+                    {pet.name}
+                  </option>
                 ))}
               </select>
             </label>
             <label>
               Record Type
-              <select defaultValue="All Types">
+              <select value={recordTypeFilter} onChange={(event) => setRecordTypeFilter(event.target.value)}>
                 <option>All Types</option>
                 <option>Diagnosis</option>
                 <option>Prescription</option>
@@ -606,18 +884,23 @@ function MedicalRecordsPage({ pets, appointments }) {
             </label>
             <label>
               Search
-              <input type="text" placeholder="Search by doctor, diagnosis, or ID" />
+              <input
+                type="text"
+                placeholder="Search by doctor, diagnosis, or ID"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
             </label>
           </div>
         </article>
 
         <article className="po-card">
           <h3>Recent Visits</h3>
-          {!appointments.length ? (
+          {!filteredRecords.length ? (
             <p className="po-mypets-subtitle">No medical visit records found in your account.</p>
           ) : (
             <ul className="po-medical-visit-list">
-              {appointments.map((visit) => (
+              {filteredRecords.map((visit) => (
                 <li key={visit.id}>
                   <div>
                     <strong>{visit.id}</strong>
@@ -671,13 +954,10 @@ function MedicalRecordsPage({ pets, appointments }) {
             <p className="po-mypets-subtitle">Select a visit to view details.</p>
           )}
           <div className="po-record-actions">
-            <button type="button" className="po-record-download">
+            <button type="button" className="po-record-download" onClick={handleDownloadPdf} disabled={!selectedRecord}>
               Download PDF
             </button>
-            <button type="button" className="po-record-secondary">
-              Share Record
-            </button>
-            <button type="button" className="po-record-secondary">
+            <button type="button" className="po-record-secondary" onClick={handlePrintRecord} disabled={!selectedRecord}>
               Print
             </button>
           </div>
@@ -1025,9 +1305,30 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
     setPets((currentPets) => currentPets.filter((pet) => pet.id !== petId))
   }
 
+  const handleUpdatePet = async (petId, updates) => {
+    const response = await updatePetById(petId, updates, { userId: currentUser?.id || '' })
+    const updatedPet = response?.pet
+    if (updatedPet) {
+      setPets((currentPets) => currentPets.map((pet) => (pet.id === updatedPet.id ? updatedPet : pet)))
+    }
+  }
+
+  const handleUploadPetPhoto = async (petId, photoDataUrl) => {
+    await handleUpdatePet(petId, { petPhoto: photoDataUrl })
+  }
+
   const handleAppointmentBooked = (appointment) => {
     setAppointments((currentItems) => [appointment, ...currentItems])
     setActivePage('Appointment History')
+  }
+
+  const handleDeleteAppointment = async (appointmentId) => {
+    const confirmed = window.confirm('Delete this appointment history?')
+    if (!confirmed) {
+      return
+    }
+    await deleteAppointmentById(appointmentId, { userId: currentUser?.id || '' })
+    setAppointments((currentItems) => currentItems.filter((item) => item.id !== appointmentId))
   }
 
   const handleSaveProfile = async (updates) => {
@@ -1176,9 +1477,15 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
                   pets={pets}
                   onAddNewPet={() => setActivePage('Add Pet')}
                   onDeletePet={handleDeletePet}
+                  onUpdatePet={handleUpdatePet}
+                  onUploadPetPhoto={handleUploadPetPhoto}
                 />
               ) : activePage === 'Appointment History' ? (
-                <AppointmentHistoryPage appointments={appointments} onBookAppointment={() => setActivePage('Book Appointment')} />
+                <AppointmentHistoryPage
+                  appointments={appointments}
+                  onBookAppointment={() => setActivePage('Book Appointment')}
+                  onDeleteAppointment={handleDeleteAppointment}
+                />
               ) : activePage === 'Medical Records' ? (
                 <MedicalRecordsPage pets={pets} appointments={appointments} />
               ) : activePage === 'Profile' ? (

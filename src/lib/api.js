@@ -66,6 +66,12 @@ export function updateAppointmentById(appointmentId, body) {
   })
 }
 
+export function deleteAppointmentById(appointmentId, query) {
+  return request(withQuery(`/api/appointments/${appointmentId}`, query), {
+    method: 'DELETE',
+  })
+}
+
 export function listPets(query) {
   return request(withQuery('/api/pets', query))
 }
@@ -77,8 +83,8 @@ export function createPet(body) {
   })
 }
 
-export function updatePetById(petId, body) {
-  return request(`/api/pets/${petId}`, {
+export function updatePetById(petId, body, query) {
+  return request(withQuery(`/api/pets/${petId}`, query), {
     method: 'PUT',
     body: JSON.stringify(body),
   })

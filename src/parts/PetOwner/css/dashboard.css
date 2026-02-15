@@ -307,6 +307,28 @@
   margin-bottom: 10px;
 }
 
+.po-pet-photo {
+  width: 100%;
+  max-width: 220px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(126, 94, 34, 0.22);
+  background: rgba(255, 246, 219, 0.8);
+  margin-bottom: 10px;
+}
+
+.po-pet-photo-placeholder {
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  color: #9f7a20;
+}
+
+.po-file-input-hidden {
+  display: none;
+}
+
 .po-mypet-actions {
   display: flex;
   gap: 8px;

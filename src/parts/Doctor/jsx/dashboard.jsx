@@ -199,7 +199,7 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
   const filteredRecords = medicalRecords.filter((item) => {
     const query = recordSearch.trim().toLowerCase()
     if (!query) {
-      return true
+      return false
     }
     return (
       item.petName.toLowerCase().includes(query) ||
@@ -998,30 +998,36 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
 
               <article className="dr-card">
                 <h3>History</h3>
-                <ul className="dr-record-list">
-                  {filteredRecords.map((record) => (
-                    <li key={record.id}>
-                      <p>
-                        <strong>Date:</strong> {record.recordDate || '-'} | <strong>Doctor:</strong> {record.doctorName || '-'}
-                      </p>
-                      <p>
-                        <strong>{record.petName}</strong> ({record.petId || record.id}) - Owner: {record.ownerName}
-                      </p>
-                      <p>
-                        <strong>Past Diagnoses:</strong> {record.diagnosis}
-                      </p>
-                      <p>
-                        <strong>Prescriptions:</strong> {record.prescription}
-                      </p>
-                      <p>
-                        <strong>Vaccines:</strong> {record.vaccine}
-                      </p>
-                      <p>
-                        <strong>Lab Results:</strong> {record.labResult}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
+                {!recordSearch.trim() ? (
+                  <p>Type in search to see matching history records.</p>
+                ) : filteredRecords.length === 0 ? (
+                  <p>No matching history found.</p>
+                ) : (
+                  <ul className="dr-record-list">
+                    {filteredRecords.map((record) => (
+                      <li key={record.id}>
+                        <p>
+                          <strong>Date:</strong> {record.recordDate || '-'} | <strong>Doctor:</strong> {record.doctorName || '-'}
+                        </p>
+                        <p>
+                          <strong>{record.petName}</strong> ({record.petId || record.id}) - Owner: {record.ownerName}
+                        </p>
+                        <p>
+                          <strong>Past Diagnoses:</strong> {record.diagnosis}
+                        </p>
+                        <p>
+                          <strong>Prescriptions:</strong> {record.prescription}
+                        </p>
+                        <p>
+                          <strong>Vaccines:</strong> {record.vaccine}
+                        </p>
+                        <p>
+                          <strong>Lab Results:</strong> {record.labResult}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </article>
 
               <form className="dr-card dr-record-entry" onSubmit={handleMedicalRecordSubmit}>
