@@ -7,11 +7,13 @@ import {
   getUserProfile,
   listAppointments,
   listPets,
+  listUsers,
   updateUserProfile,
 } from '../../../lib/api'
 
 const SIDEBAR_ITEMS = [
   { id: 'Dashboard', label: 'Dashboard', icon: '🏠' },
+  { id: 'Book Appointment', label: 'Book Appointment', icon: '📝' },
   { id: 'My Pets', label: 'My Pets', icon: '🐾' },
   { id: 'Appointment History', label: 'Appointment History', icon: '📅' },
   { id: 'Medical Records', label: 'Medical Records', icon: '📋' },
@@ -25,83 +27,107 @@ const PAGE_DESCRIPTIONS = {
   Profile: 'Update owner details, preferences, and account settings.',
 }
 
-const MEDICAL_RECORD_SECTIONS = [
-  { title: 'Diagnosis', text: 'Max: Skin allergy follow-up with anti-inflammatory treatment plan.' },
-  { title: 'Prescriptions', text: 'Cetirizine 5mg daily for 7 days and medicated shampoo twice weekly.' },
-  { title: 'Lab Results', text: 'CBC normal range, mild eosinophilia observed, stool test negative.' },
-  { title: 'Vaccination Records', text: 'Rabies completed, DHPP booster due on Mar 22, 2026.' },
-]
+function toTimestamp(dateValue, timeValue = '00:00') {
+  if (!dateValue) {
+    return Number.NaN
+  }
+  const withTime = Date.parse(`${dateValue}T${timeValue || '00:00'}`)
+  if (!Number.isNaN(withTime)) {
+    return withTime
+  }
+  return Date.parse(dateValue)
+}
 
-const MEDICAL_VISITS = [
-  {
-    id: 'MR-3021',
-    date: 'Mar 10, 2026',
-    pet: 'Max',
-    doctor: 'Dr. Sarah Khan',
-    note: 'Skin allergy follow-up with updated treatment plan.',
-  },
-  {
-    id: 'MR-3018',
-    date: 'Mar 03, 2026',
-    pet: 'Bella',
-    doctor: 'Dr. Michael Reed',
-    note: 'Routine wellness exam and vaccination record update.',
-  },
-  {
-    id: 'MR-3007',
-    date: 'Feb 21, 2026',
-    pet: 'Max',
-    doctor: 'Dr. Olivia Grant',
-    note: 'Lab work reviewed and diet changes suggested.',
-  },
-]
+function getSortedAppointments(appointments, order = 'desc') {
+  return [...appointments].sort((a, b) => {
+    const aTs = toTimestamp(a.appointmentDate || a.date, a.appointmentTime)
+    const bTs = toTimestamp(b.appointmentDate || b.date, b.appointmentTime)
+    const safeA = Number.isNaN(aTs) ? 0 : aTs
+    const safeB = Number.isNaN(bTs) ? 0 : bTs
+    return order === 'asc' ? safeA - safeB : safeB - safeA
+  })
+}
 
-function DashboardCards({ onBookAppointment, onAddPet }) {
+function DashboardCards({ pets, appointments, onBookAppointment, onAddPet }) {
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const upcomingAppointment =
+    getSortedAppointments(
+      appointments.filter((item) => {
+        const status = String(item.status || '').toLowerCase()
+        if (status === 'cancelled' || status === 'completed') {
+          return false
+        }
+        const ts = toTimestamp(item.appointmentDate || item.date, item.appointmentTime)
+        return !Number.isNaN(ts) && ts >= todayStart.getTime()
+      }),
+      'asc'
+    )[0] || null
+  const recentAppointment = getSortedAppointments(appointments, 'desc')[0] || null
+  const vaccineReminders = pets.filter((pet) => String(pet.vaccinationStatus || '').toLowerCase() !== 'up to date')
+
   return (
     <div className="po-card-grid">
       <article className="po-card">
         <h3>Upcoming Appointment</h3>
-        <ul className="po-detail-list">
-          <li>
-            <span>Pet</span>
-            <strong>Bella</strong>
-          </li>
-          <li>
-            <span>Doctor</span>
-            <strong>Dr. Sarah Khan</strong>
-          </li>
-          <li>
-            <span>Date & Time</span>
-            <strong>Mar 18, 10:30 AM</strong>
-          </li>
-        </ul>
+        {upcomingAppointment ? (
+          <ul className="po-detail-list">
+            <li>
+              <span>Pet</span>
+              <strong>{upcomingAppointment.petName}</strong>
+            </li>
+            <li>
+              <span>Doctor</span>
+              <strong>{upcomingAppointment.doctorName}</strong>
+            </li>
+            <li>
+              <span>Date & Time</span>
+              <strong>
+                {formatAppointmentDate(upcomingAppointment.appointmentDate || upcomingAppointment.date)}
+                {upcomingAppointment.appointmentTime ? `, ${upcomingAppointment.appointmentTime}` : ''}
+              </strong>
+            </li>
+          </ul>
+        ) : (
+          <p className="po-mypets-subtitle">No upcoming appointments in your account.</p>
+        )}
       </article>
 
       <article className="po-card">
         <h3>Pet Vaccination Reminders</h3>
-        <ul className="po-note-list">
-          <li>Bella: Rabies booster due in 5 days.</li>
-          <li>Max: DHPP shot due on Mar 22.</li>
-          <li>Pluto: Annual check and vaccine renewal pending.</li>
-        </ul>
+        {vaccineReminders.length ? (
+          <ul className="po-note-list">
+            {vaccineReminders.map((pet) => (
+              <li key={pet.id}>
+                {pet.name}: Vaccination status is {pet.vaccinationStatus}.
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="po-mypets-subtitle">All pets are marked as up to date.</p>
+        )}
       </article>
 
       <article className="po-card">
         <h3>Recent Medical Record</h3>
-        <ul className="po-detail-list">
-          <li>
-            <span>Pet</span>
-            <strong>Max</strong>
-          </li>
-          <li>
-            <span>Diagnosis</span>
-            <strong>Skin Allergy Follow-up</strong>
-          </li>
-          <li>
-            <span>Updated</span>
-            <strong>Mar 10, 2026</strong>
-          </li>
-        </ul>
+        {recentAppointment ? (
+          <ul className="po-detail-list">
+            <li>
+              <span>Pet</span>
+              <strong>{recentAppointment.petName}</strong>
+            </li>
+            <li>
+              <span>Reason</span>
+              <strong>{recentAppointment.reason}</strong>
+            </li>
+            <li>
+              <span>Updated</span>
+              <strong>{formatAppointmentDate(recentAppointment.appointmentDate || recentAppointment.date)}</strong>
+            </li>
+          </ul>
+        ) : (
+          <p className="po-mypets-subtitle">No medical records found yet.</p>
+        )}
       </article>
 
       <article className="po-card">
@@ -119,9 +145,9 @@ function DashboardCards({ onBookAppointment, onAddPet }) {
       <article className="po-card">
         <h3>Notifications</h3>
         <ul className="po-note-list">
-          <li>Appointment confirmed for Bella with Dr. Sarah Khan.</li>
-          <li>Medical report uploaded for Max.</li>
-          <li>Reminder: Complete profile details for faster booking.</li>
+          <li>{appointments.length} appointment(s) found in your account history.</li>
+          <li>{pets.length} pet profile(s) linked to your account.</li>
+          <li>Use Appointment History to review status updates.</li>
         </ul>
       </article>
     </div>
@@ -290,7 +316,7 @@ function formatAppointmentDate(value) {
   })
 }
 
-function AppointmentHistoryPage({ appointments }) {
+function AppointmentHistoryPage({ appointments, onBookAppointment }) {
   const [selectedAppointmentId, setSelectedAppointmentId] = useState(appointments[0]?.id || '')
 
   useEffect(() => {
@@ -312,6 +338,9 @@ function AppointmentHistoryPage({ appointments }) {
       <article className="po-card">
         <h3>Appointment History</h3>
         <p className="po-mypets-subtitle">Track all appointments with doctor and status details.</p>
+        <button type="button" className="po-mypets-add-btn" onClick={onBookAppointment}>
+          Book New Appointment
+        </button>
       </article>
 
       <article className="po-card">
@@ -381,7 +410,7 @@ function AppointmentHistoryPage({ appointments }) {
   )
 }
 
-function BookAppointmentPage({ pets, ownerName, onViewHistory, onAppointmentBooked }) {
+function BookAppointmentPage({ pets, doctors, ownerId, ownerName, onViewHistory, onAppointmentBooked }) {
   const [statusMessage, setStatusMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -399,14 +428,23 @@ function BookAppointmentPage({ pets, ownerName, onViewHistory, onAppointmentBook
       setErrorMessage('Add a pet first before booking an appointment.')
       return
     }
+    if (!doctors.length) {
+      setErrorMessage('No doctor accounts found. Please contact staff.')
+      return
+    }
 
     const body = {
+      ownerId: String(ownerId || '').trim(),
       ownerName: String(ownerName || '').trim(),
       petName: String(formData.get('petName') || '').trim(),
       doctorName: String(formData.get('doctorName') || '').trim(),
       appointmentDate: String(formData.get('appointmentDate') || '').trim(),
       appointmentTime: String(formData.get('appointmentTime') || '').trim(),
       reason: String(formData.get('reason') || '').trim(),
+    }
+    if (!body.ownerId) {
+      setErrorMessage('Please log in again before booking an appointment.')
+      return
     }
 
     try {
@@ -419,6 +457,7 @@ function BookAppointmentPage({ pets, ownerName, onViewHistory, onAppointmentBook
       }
       setStatusMessage('Appointment booked successfully.')
       formElement.reset()
+      onViewHistory()
     } catch (requestError) {
       setErrorMessage(requestError.message)
     } finally {
@@ -434,6 +473,7 @@ function BookAppointmentPage({ pets, ownerName, onViewHistory, onAppointmentBook
         {!pets.length ? (
           <p className="po-form-error">No pets found in your account. Please add a pet first.</p>
         ) : null}
+        {!doctors.length ? <p className="po-form-error">No doctor accounts found. Please contact staff.</p> : null}
       </article>
 
       <article className="po-card po-book-layout">
@@ -455,10 +495,12 @@ function BookAppointmentPage({ pets, ownerName, onViewHistory, onAppointmentBook
           </label>
           <label>
             Doctor
-              <select name="doctorName" defaultValue="Dr. Sarah Khan" required disabled={isSubmitting}>
-              <option>Dr. Sarah Khan</option>
-              <option>Dr. Michael Reed</option>
-              <option>Dr. Olivia Grant</option>
+            <select name="doctorName" defaultValue={doctors[0]?.name || ''} required disabled={isSubmitting || !doctors.length}>
+              {doctors.map((doctor) => (
+                <option key={doctor.id} value={doctor.name}>
+                  {doctor.name}
+                </option>
+              ))}
             </select>
           </label>
           <label>
@@ -481,7 +523,7 @@ function BookAppointmentPage({ pets, ownerName, onViewHistory, onAppointmentBook
           </label>
 
           <div className="po-book-actions po-book-full">
-            <button type="submit" className="po-record-download" disabled={isSubmitting || !pets.length}>
+            <button type="submit" className="po-record-download" disabled={isSubmitting || !pets.length || !doctors.length}>
               {isSubmitting ? 'Booking...' : 'Confirm Booking'}
             </button>
             <button type="button" className="po-record-secondary" onClick={onViewHistory}>
@@ -497,7 +539,25 @@ function BookAppointmentPage({ pets, ownerName, onViewHistory, onAppointmentBook
   )
 }
 
-function MedicalRecordsPage() {
+function MedicalRecordsPage({ pets, appointments }) {
+  const [selectedRecordId, setSelectedRecordId] = useState(appointments[0]?.id || '')
+
+  useEffect(() => {
+    setSelectedRecordId((currentId) => {
+      if (!appointments.length) {
+        return ''
+      }
+      if (appointments.some((item) => item.id === currentId)) {
+        return currentId
+      }
+      return appointments[0].id
+    })
+  }, [appointments])
+
+  const selectedRecord = appointments.find((item) => item.id === selectedRecordId) || null
+  const latestRecord = appointments[0] || null
+  const pendingVaccine = pets.find((pet) => String(pet.vaccinationStatus || '').toLowerCase() !== 'up to date')
+
   return (
     <section className="po-mypets">
       <article className="po-card">
@@ -509,15 +569,15 @@ function MedicalRecordsPage() {
         <article className="po-card po-medical-summary">
           <div className="po-medical-stat">
             <p>Total Records</p>
-            <strong>18</strong>
+            <strong>{appointments.length}</strong>
           </div>
           <div className="po-medical-stat">
             <p>Last Updated</p>
-            <strong>Mar 10, 2026</strong>
+            <strong>{latestRecord ? formatAppointmentDate(latestRecord.appointmentDate || latestRecord.date) : '-'}</strong>
           </div>
           <div className="po-medical-stat">
             <p>Upcoming Vaccine</p>
-            <strong>Mar 22, 2026</strong>
+            <strong>{pendingVaccine ? `${pendingVaccine.name} (${pendingVaccine.vaccinationStatus})` : 'No pending reminder'}</strong>
           </div>
         </article>
 
@@ -528,8 +588,9 @@ function MedicalRecordsPage() {
               Pet
               <select defaultValue="All Pets">
                 <option>All Pets</option>
-                <option>Bella</option>
-                <option>Max</option>
+                {pets.map((pet) => (
+                  <option key={pet.id}>{pet.name}</option>
+                ))}
               </select>
             </label>
             <label>
@@ -551,32 +612,63 @@ function MedicalRecordsPage() {
 
         <article className="po-card">
           <h3>Recent Visits</h3>
-          <ul className="po-medical-visit-list">
-            {MEDICAL_VISITS.map((visit) => (
-              <li key={visit.id}>
-                <div>
-                  <strong>{visit.id}</strong>
-                  <p>
-                    {visit.date} | {visit.pet} | {visit.doctor}
-                  </p>
-                  <p>{visit.note}</p>
-                </div>
-                <button type="button">View Details</button>
-              </li>
-            ))}
-          </ul>
+          {!appointments.length ? (
+            <p className="po-mypets-subtitle">No medical visit records found in your account.</p>
+          ) : (
+            <ul className="po-medical-visit-list">
+              {appointments.map((visit) => (
+                <li key={visit.id}>
+                  <div>
+                    <strong>{visit.id}</strong>
+                    <p>
+                      {formatAppointmentDate(visit.appointmentDate || visit.date)} | {visit.petName} | {visit.doctorName}
+                    </p>
+                    <p>{visit.reason}</p>
+                  </div>
+                  <button type="button" onClick={() => setSelectedRecordId(visit.id)}>
+                    View Details
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </article>
 
         <article className="po-card">
           <h3>Record Details</h3>
-          <ul className="po-record-list">
-            {MEDICAL_RECORD_SECTIONS.map((item) => (
-              <li key={item.title}>
-                <h4>{item.title}</h4>
-                <p>{item.text}</p>
+          {selectedRecord ? (
+            <ul className="po-record-list">
+              <li>
+                <h4>Appointment ID</h4>
+                <p>{selectedRecord.id}</p>
               </li>
-            ))}
-          </ul>
+              <li>
+                <h4>Pet</h4>
+                <p>{selectedRecord.petName}</p>
+              </li>
+              <li>
+                <h4>Doctor</h4>
+                <p>{selectedRecord.doctorName}</p>
+              </li>
+              <li>
+                <h4>Date & Time</h4>
+                <p>
+                  {formatAppointmentDate(selectedRecord.appointmentDate || selectedRecord.date)}
+                  {selectedRecord.appointmentTime ? `, ${selectedRecord.appointmentTime}` : ''}
+                </p>
+              </li>
+              <li>
+                <h4>Status</h4>
+                <p>{selectedRecord.status}</p>
+              </li>
+              <li>
+                <h4>Reason</h4>
+                <p>{selectedRecord.reason}</p>
+              </li>
+            </ul>
+          ) : (
+            <p className="po-mypets-subtitle">Select a visit to view details.</p>
+          )}
           <div className="po-record-actions">
             <button type="button" className="po-record-download">
               Download PDF
@@ -700,6 +792,7 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
   const [activePage, setActivePage] = useState('Dashboard')
   const [pets, setPets] = useState([])
   const [appointments, setAppointments] = useState([])
+  const [doctors, setDoctors] = useState([])
   const [profile, setProfile] = useState(currentUser || null)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [profileError, setProfileError] = useState('')
@@ -710,8 +803,14 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
     let cancelled = false
 
     const loadPets = async () => {
+      if (!currentUser?.id) {
+        if (!cancelled) {
+          setPets([])
+        }
+        return
+      }
       try {
-        const response = await listPets()
+        const response = await listPets({ userId: currentUser.id })
         if (!cancelled) {
           setPets(Array.isArray(response?.pets) ? response.pets : [])
         }
@@ -726,14 +825,20 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [currentUser?.id])
 
   useEffect(() => {
     let cancelled = false
 
     const loadAppointments = async () => {
+      if (!currentUser?.id) {
+        if (!cancelled) {
+          setAppointments([])
+        }
+        return
+      }
       try {
-        const response = await listAppointments()
+        const response = await listAppointments({ userId: currentUser.id })
         if (!cancelled) {
           setAppointments(Array.isArray(response?.appointments) ? response.appointments : [])
         }
@@ -745,6 +850,28 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
     }
 
     loadAppointments()
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser?.id, currentUser?.name])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadDoctors = async () => {
+      try {
+        const response = await listUsers({ role: 'doctor' })
+        if (!cancelled) {
+          setDoctors(Array.isArray(response?.users) ? response.users : [])
+        }
+      } catch (_error) {
+        if (!cancelled) {
+          setDoctors([])
+        }
+      }
+    }
+
+    loadDoctors()
     return () => {
       cancelled = true
     }
@@ -778,7 +905,11 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
   }, [currentUser])
 
   const handleSavePet = async (newPet) => {
-    const response = await createPet(newPet)
+    const response = await createPet({
+      ...newPet,
+      ownerId: currentUser?.id || '',
+      ownerName: currentUser?.name || '',
+    })
     const createdPet = response?.pet
     if (createdPet) {
       setPets((currentPets) => [createdPet, ...currentPets])
@@ -787,12 +918,13 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
   }
 
   const handleDeletePet = async (petId) => {
-    await deletePetById(petId)
+    await deletePetById(petId, { userId: currentUser?.id || '' })
     setPets((currentPets) => currentPets.filter((pet) => pet.id !== petId))
   }
 
   const handleAppointmentBooked = (appointment) => {
     setAppointments((currentItems) => [appointment, ...currentItems])
+    setActivePage('Appointment History')
   }
 
   const handleSaveProfile = async (updates) => {
@@ -852,8 +984,11 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
 
           <div className="po-main">
             <div className="po-main-top">
+              <button className="po-add-pet" type="button" onClick={() => setActivePage('Book Appointment')}>
+                Book Appointment
+              </button>
               <button className="po-add-pet" type="button" onClick={() => setActivePage('Add Pet')}>
-                Add A Pet
+                Add Pet
               </button>
               <button className="po-profile" type="button" onClick={onLogout}>
                 <strong>Logout</strong>
@@ -863,12 +998,16 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
             {isPetOwner ? (
               activePage === 'Dashboard' ? (
                 <DashboardCards
+                  pets={pets}
+                  appointments={appointments}
                   onBookAppointment={() => setActivePage('Book Appointment')}
                   onAddPet={() => setActivePage('Add Pet')}
                 />
               ) : activePage === 'Book Appointment' ? (
                 <BookAppointmentPage
                   pets={pets}
+                  doctors={doctors}
+                  ownerId={profile?.id || currentUser?.id || ''}
                   ownerName={profile?.name || currentUser?.name || ''}
                   onViewHistory={() => setActivePage('Appointment History')}
                   onAppointmentBooked={handleAppointmentBooked}
@@ -882,9 +1021,9 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
                   onDeletePet={handleDeletePet}
                 />
               ) : activePage === 'Appointment History' ? (
-                <AppointmentHistoryPage appointments={appointments} />
+                <AppointmentHistoryPage appointments={appointments} onBookAppointment={() => setActivePage('Book Appointment')} />
               ) : activePage === 'Medical Records' ? (
-                <MedicalRecordsPage />
+                <MedicalRecordsPage pets={pets} appointments={appointments} />
               ) : activePage === 'Profile' ? (
                 <ProfilePage
                   profile={profile}

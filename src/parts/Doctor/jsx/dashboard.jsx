@@ -283,8 +283,16 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
     let cancelled = false
 
     const loadAppointments = async () => {
+      const doctorName = String(profile?.name || currentUser?.name || '').trim()
+      if (!doctorName) {
+        if (!cancelled) {
+          setAppointments([])
+        }
+        return
+      }
+
       try {
-        const response = await listAppointments()
+        const response = await listAppointments({ doctorName })
         if (!cancelled) {
           setAppointments(Array.isArray(response?.appointments) ? response.appointments : [])
         }
@@ -299,7 +307,7 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [profile?.name, currentUser?.name])
 
   useEffect(() => {
     setConsultAppointmentId((currentId) => {

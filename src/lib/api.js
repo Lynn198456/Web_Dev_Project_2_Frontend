@@ -1,5 +1,16 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001'
 
+function withQuery(path, query = {}) {
+  const params = new URLSearchParams()
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      params.set(key, String(value))
+    }
+  })
+  const queryString = params.toString()
+  return queryString ? `${path}?${queryString}` : path
+}
+
 async function request(path, options = {}) {
   let response
   try {
@@ -44,8 +55,8 @@ export function createAppointment(body) {
   })
 }
 
-export function listAppointments() {
-  return request('/api/appointments')
+export function listAppointments(query) {
+  return request(withQuery('/api/appointments', query))
 }
 
 export function updateAppointmentById(appointmentId, body) {
@@ -55,8 +66,8 @@ export function updateAppointmentById(appointmentId, body) {
   })
 }
 
-export function listPets() {
-  return request('/api/pets')
+export function listPets(query) {
+  return request(withQuery('/api/pets', query))
 }
 
 export function createPet(body) {
@@ -66,8 +77,8 @@ export function createPet(body) {
   })
 }
 
-export function deletePetById(petId) {
-  return request(`/api/pets/${petId}`, {
+export function deletePetById(petId, query) {
+  return request(withQuery(`/api/pets/${petId}`, query), {
     method: 'DELETE',
   })
 }
@@ -81,6 +92,10 @@ export function updateUserProfile(userId, body) {
     method: 'PUT',
     body: JSON.stringify(body),
   })
+}
+
+export function listUsers(query) {
+  return request(withQuery('/api/users', query))
 }
 
 export function createConsultation(body) {
