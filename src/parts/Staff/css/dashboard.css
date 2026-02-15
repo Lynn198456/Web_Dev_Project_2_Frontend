@@ -381,6 +381,13 @@
   color: #fff;
   font-size: 22px;
   font-weight: 800;
+  overflow: hidden;
+}
+
+.st-profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .st-profile-meta h3 {
@@ -727,6 +734,11 @@
 .st-history-pending {
   background: rgba(201, 158, 68, 0.2);
   color: #8d6512;
+}
+
+.st-history-failed {
+  background: rgba(183, 81, 81, 0.2);
+  color: #8b3131;
 }
 
 .st-history-confirmed {

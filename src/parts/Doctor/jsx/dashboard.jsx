@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react'
 import '../css/dashboard.css'
 import {
+  addDoctorAvailableSlot,
+  addDoctorBlockedSlot,
+  changeUserPassword,
   createConsultation,
+  createMedicalRecord,
   createPrescription,
+  deleteDoctorScheduleSlot,
+  getDoctorSchedule,
   getUserProfile,
   listAppointments,
+  listMedicalRecords,
   listPets,
   listPrescriptions,
+  updateDoctorClinicHours,
   updateAppointmentById,
   updateUserProfile,
 } from '../../../lib/api'
@@ -16,7 +24,7 @@ const DOCTOR_PAGES = [
   'Appointments Page',
   'Pet Medical Records Page',
   'Prescriptions Page',
-  'Doctor Schedule / Availability Page',
+  'Doctor Schedule Page',
   'Profile',
 ]
 
@@ -35,39 +43,6 @@ const CONSULTATION_CASE = {
   symptoms: 'Loss of appetite for 2 days, mild fever, and reduced activity level.',
   reason: 'General health check and appetite concern.',
 }
-
-const MEDICAL_RECORDS = [
-  {
-    id: 'PET-1001',
-    petName: 'Bella',
-    ownerName: 'Jonathan Smith',
-    diagnosis: 'Mild gastric irritation',
-    prescription: 'Probiotic syrup twice daily for 5 days',
-    vaccine: 'Rabies booster completed (Mar 2026)',
-    labResult: 'CBC normal, stool test negative',
-  },
-  {
-    id: 'PET-1002',
-    petName: 'Max',
-    ownerName: 'Emma Davis',
-    diagnosis: 'Skin allergy follow-up',
-    prescription: 'Cetirizine 5mg for 7 days',
-    vaccine: 'DHPP booster due (Mar 22, 2026)',
-    labResult: 'Mild eosinophilia, no infection markers',
-  },
-  {
-    id: 'PET-1003',
-    petName: 'Luna',
-    ownerName: 'Noah Patel',
-    diagnosis: 'Ear infection resolved',
-    prescription: 'Topical ear drops completed',
-    vaccine: 'Core vaccines up to date',
-    labResult: 'Culture clear post-treatment',
-  },
-]
-
-const AVAILABLE_SLOTS = ['09:00 - 09:30', '09:30 - 10:00', '10:30 - 11:00', '11:00 - 11:30', '02:00 - 02:30']
-const BUSY_BLOCKS = ['12:00 - 01:00 (Lunch Break)', '03:30 - 04:00 (Emergency Case)']
 
 const PAGE_CONTENT = {
   'Doctor Dashboard': {
@@ -115,8 +90,8 @@ const PAGE_CONTENT = {
       { title: 'History', detail: 'Past prescription logs', action: 'View history' },
     ],
   },
-  'Doctor Schedule / Availability Page': {
-    title: 'Doctor Schedule / Availability Page',
+  'Doctor Schedule Page': {
+    title: 'Doctor Schedule Page',
     subtitle: 'Manage working hours and available consultation slots.',
     cards: [
       { title: 'Weekly Schedule', detail: 'Set clinic days and timings', action: 'Edit schedule' },
@@ -146,6 +121,12 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [profileStatus, setProfileStatus] = useState('')
   const [profileError, setProfileError] = useState('')
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [passwordStatus, setPasswordStatus] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [isSavingNotifications, setIsSavingNotifications] = useState(false)
+  const [notificationStatus, setNotificationStatus] = useState('')
+  const [notificationError, setNotificationError] = useState('')
   const [appointments, setAppointments] = useState([])
   const [consultAppointmentId, setConsultAppointmentId] = useState('')
   const [isSavingConsultation, setIsSavingConsultation] = useState(false)
@@ -156,6 +137,19 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
   const [isSavingPrescription, setIsSavingPrescription] = useState(false)
   const [prescriptionStatusMessage, setPrescriptionStatusMessage] = useState('')
   const [prescriptionErrorMessage, setPrescriptionErrorMessage] = useState('')
+  const [medicalRecords, setMedicalRecords] = useState([])
+  const [isSavingMedicalRecord, setIsSavingMedicalRecord] = useState(false)
+  const [medicalRecordStatusMessage, setMedicalRecordStatusMessage] = useState('')
+  const [medicalRecordErrorMessage, setMedicalRecordErrorMessage] = useState('')
+  const [doctorSchedule, setDoctorSchedule] = useState(null)
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false)
+  const [scheduleStatusMessage, setScheduleStatusMessage] = useState('')
+  const [scheduleErrorMessage, setScheduleErrorMessage] = useState('')
+  const [clinicHours, setClinicHours] = useState({
+    mondayFriday: '09:00 AM - 05:00 PM',
+    saturday: '10:00 AM - 02:00 PM',
+    sunday: 'Closed',
+  })
   const content = PAGE_CONTENT[activePage] || PAGE_CONTENT['Doctor Dashboard']
   const todayIso = new Date().toISOString().slice(0, 10)
   const getBucket = (dateValue) => {
@@ -202,7 +196,7 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
       year: 'numeric',
     })
   }
-  const filteredRecords = MEDICAL_RECORDS.filter((item) => {
+  const filteredRecords = medicalRecords.filter((item) => {
     const query = recordSearch.trim().toLowerCase()
     if (!query) {
       return true
@@ -315,6 +309,65 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
   }, [profile?.name, currentUser?.name])
 
   useEffect(() => {
+    let cancelled = false
+
+    const loadMedicalRecords = async () => {
+      try {
+        const response = await listMedicalRecords()
+        if (!cancelled) {
+          setMedicalRecords(Array.isArray(response?.records) ? response.records : [])
+        }
+      } catch {
+        if (!cancelled) {
+          setMedicalRecords([])
+        }
+      }
+    }
+
+    loadMedicalRecords()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadDoctorSchedule = async () => {
+      const doctorId = String(profile?.id || currentUser?.id || '').trim()
+      const doctorName = String(profile?.name || currentUser?.name || '').trim()
+      if (!doctorId) {
+        if (!cancelled) {
+          setDoctorSchedule(null)
+        }
+        return
+      }
+
+      try {
+        const response = await getDoctorSchedule(doctorId, doctorName ? { doctorName } : {})
+        const schedule = response?.schedule || null
+        if (!cancelled) {
+          setDoctorSchedule(schedule)
+          setClinicHours({
+            mondayFriday: schedule?.clinicHours?.mondayFriday || '09:00 AM - 05:00 PM',
+            saturday: schedule?.clinicHours?.saturday || '10:00 AM - 02:00 PM',
+            sunday: schedule?.clinicHours?.sunday || 'Closed',
+          })
+        }
+      } catch {
+        if (!cancelled) {
+          setDoctorSchedule(null)
+        }
+      }
+    }
+
+    loadDoctorSchedule()
+    return () => {
+      cancelled = true
+    }
+  }, [profile?.id, profile?.name, currentUser?.id, currentUser?.name])
+
+  useEffect(() => {
     setConsultAppointmentId((currentId) => {
       if (!consultationAppointments.length) {
         return ''
@@ -331,10 +384,11 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
     if (!file) {
       return
     }
-    if (doctorPhotoPreview.startsWith('blob:')) {
-      URL.revokeObjectURL(doctorPhotoPreview)
+    const reader = new FileReader()
+    reader.onload = () => {
+      setDoctorPhotoPreview(String(reader.result || ''))
     }
-    setDoctorPhotoPreview(URL.createObjectURL(file))
+    reader.readAsDataURL(file)
   }
 
   const handleProfileSubmit = async (event) => {
@@ -350,6 +404,10 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
       phone: String(formData.get('phone') || '').trim(),
       address: String(formData.get('address') || '').trim(),
       preferredContact: String(formData.get('preferredContact') || 'Email'),
+      workingDays: String(formData.get('workingDays') || '').trim(),
+      workingHours: String(formData.get('workingHours') || '').trim(),
+      breakTime: String(formData.get('breakTime') || '').trim(),
+      profilePhoto: doctorPhotoPreview || String(profile?.profilePhoto || ''),
     }
 
     try {
@@ -420,6 +478,77 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
     setActivePage('Consultation Details')
   }
 
+  const handleDoctorPasswordSubmit = async (event) => {
+    event.preventDefault()
+    if (!profile?.id) {
+      setPasswordError('Please log in again to change password.')
+      return
+    }
+    const formData = new FormData(event.currentTarget)
+    const currentPassword = String(formData.get('currentPassword') || '')
+    const newPassword = String(formData.get('newPassword') || '')
+
+    try {
+      setIsChangingPassword(true)
+      setPasswordError('')
+      setPasswordStatus('')
+      await changeUserPassword(profile.id, { currentPassword, newPassword })
+      setPasswordStatus('Password updated successfully.')
+      event.currentTarget.reset()
+    } catch (requestError) {
+      setPasswordError(requestError.message)
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
+  const handleDoctorNotificationSubmit = async (event) => {
+    event.preventDefault()
+    if (!profile?.id) {
+      setNotificationError('Please log in again to update notification settings.')
+      return
+    }
+    const formData = new FormData(event.currentTarget)
+    const notificationPreferences = {
+      appointmentRequestAlerts: formData.get('appointmentRequestAlerts') === 'on',
+      paymentConfirmationAlerts: formData.get('paymentConfirmationAlerts') === 'on',
+      doctorScheduleChanges: formData.get('doctorScheduleChanges') === 'on',
+      weeklyPerformanceSummary: formData.get('weeklyPerformanceSummary') === 'on',
+      appointmentReminders: Boolean(profile?.notificationPreferences?.appointmentReminders),
+      vaccinationReminders: Boolean(profile?.notificationPreferences?.vaccinationReminders),
+      medicalRecordUpdates: Boolean(profile?.notificationPreferences?.medicalRecordUpdates),
+      promotionalUpdates: Boolean(profile?.notificationPreferences?.promotionalUpdates),
+    }
+
+    try {
+      setIsSavingNotifications(true)
+      setNotificationError('')
+      setNotificationStatus('')
+      const response = await updateUserProfile(profile.id, { notificationPreferences })
+      setProfile(response?.user || profile)
+      setNotificationStatus('Notification preferences updated.')
+    } catch (requestError) {
+      setNotificationError(requestError.message)
+    } finally {
+      setIsSavingNotifications(false)
+    }
+  }
+
+  const handleTwoFactorToggle = async (enabled) => {
+    if (!profile?.id) {
+      setProfileError('Please log in again to update 2FA.')
+      return
+    }
+    try {
+      setProfileError('')
+      const response = await updateUserProfile(profile.id, { twoFactorEnabled: enabled })
+      setProfile(response?.user || profile)
+      setProfileStatus(enabled ? 'Two-Factor Authentication enabled.' : 'Two-Factor Authentication disabled.')
+    } catch (requestError) {
+      setProfileError(requestError.message)
+    }
+  }
+
   const handlePrescriptionSubmit = async (event) => {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
@@ -451,6 +580,165 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
       setPrescriptionErrorMessage(requestError.message)
     } finally {
       setIsSavingPrescription(false)
+    }
+  }
+
+  const handleMedicalRecordSubmit = async (event) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    const petId = String(formData.get('petId') || '').trim()
+    const selectedPet = pets.find((item) => item.id === petId)
+    if (!selectedPet) {
+      setMedicalRecordErrorMessage('Please select a pet first.')
+      return
+    }
+
+    const payload = {
+      petId: selectedPet.id,
+      petName: selectedPet.name,
+      ownerName: selectedPet.ownerName || '',
+      doctorId: profile?.id || '',
+      doctorName: profile?.name || currentUser?.name || 'Doctor',
+      diagnosis: String(formData.get('diagnosis') || '').trim(),
+      prescription: String(formData.get('prescription') || '').trim(),
+      vaccine: String(formData.get('vaccine') || '').trim(),
+      labResult: String(formData.get('labResult') || '').trim(),
+      notes: String(formData.get('notes') || '').trim(),
+      recordDate: String(formData.get('recordDate') || '').trim(),
+    }
+
+    try {
+      setIsSavingMedicalRecord(true)
+      setMedicalRecordErrorMessage('')
+      setMedicalRecordStatusMessage('')
+      const response = await createMedicalRecord(payload)
+      const created = response?.record
+      if (created) {
+        setMedicalRecords((current) => [created, ...current])
+      }
+      setMedicalRecordStatusMessage('Medical record saved successfully.')
+      event.currentTarget.reset()
+    } catch (requestError) {
+      setMedicalRecordErrorMessage(requestError.message)
+    } finally {
+      setIsSavingMedicalRecord(false)
+    }
+  }
+
+  const handleAddAvailableSlot = async (event) => {
+    event.preventDefault()
+    const doctorId = String(profile?.id || currentUser?.id || '').trim()
+    if (!doctorId) {
+      setScheduleErrorMessage('Please log in again to update schedule.')
+      return
+    }
+
+    const formData = new FormData(event.currentTarget)
+    const body = {
+      doctorName: profile?.name || currentUser?.name || '',
+      date: String(formData.get('date') || '').trim(),
+      startTime: String(formData.get('startTime') || '').trim(),
+      endTime: String(formData.get('endTime') || '').trim(),
+    }
+
+    try {
+      setIsSavingSchedule(true)
+      setScheduleErrorMessage('')
+      setScheduleStatusMessage('')
+      const response = await addDoctorAvailableSlot(doctorId, body)
+      setDoctorSchedule(response?.schedule || null)
+      setScheduleStatusMessage('Available slot added.')
+      event.currentTarget.reset()
+    } catch (requestError) {
+      setScheduleErrorMessage(requestError.message)
+    } finally {
+      setIsSavingSchedule(false)
+    }
+  }
+
+  const handleAddBlockedSlot = async (event) => {
+    event.preventDefault()
+    const doctorId = String(profile?.id || currentUser?.id || '').trim()
+    if (!doctorId) {
+      setScheduleErrorMessage('Please log in again to update schedule.')
+      return
+    }
+
+    const formData = new FormData(event.currentTarget)
+    const body = {
+      doctorName: profile?.name || currentUser?.name || '',
+      date: String(formData.get('date') || '').trim(),
+      startTime: String(formData.get('startTime') || '').trim(),
+      endTime: String(formData.get('endTime') || '').trim(),
+      reason: String(formData.get('reason') || '').trim(),
+    }
+
+    try {
+      setIsSavingSchedule(true)
+      setScheduleErrorMessage('')
+      setScheduleStatusMessage('')
+      const response = await addDoctorBlockedSlot(doctorId, body)
+      setDoctorSchedule(response?.schedule || null)
+      setScheduleStatusMessage('Busy block added.')
+      event.currentTarget.reset()
+    } catch (requestError) {
+      setScheduleErrorMessage(requestError.message)
+    } finally {
+      setIsSavingSchedule(false)
+    }
+  }
+
+  const handleClinicHoursSubmit = async (event) => {
+    event.preventDefault()
+    const doctorId = String(profile?.id || currentUser?.id || '').trim()
+    if (!doctorId) {
+      setScheduleErrorMessage('Please log in again to update schedule.')
+      return
+    }
+
+    try {
+      setIsSavingSchedule(true)
+      setScheduleErrorMessage('')
+      setScheduleStatusMessage('')
+      const response = await updateDoctorClinicHours(doctorId, {
+        doctorName: profile?.name || currentUser?.name || '',
+        mondayFriday: clinicHours.mondayFriday,
+        saturday: clinicHours.saturday,
+        sunday: clinicHours.sunday,
+      })
+      const schedule = response?.schedule || null
+      setDoctorSchedule(schedule)
+      setClinicHours({
+        mondayFriday: schedule?.clinicHours?.mondayFriday || '09:00 AM - 05:00 PM',
+        saturday: schedule?.clinicHours?.saturday || '10:00 AM - 02:00 PM',
+        sunday: schedule?.clinicHours?.sunday || 'Closed',
+      })
+      setScheduleStatusMessage('Clinic hours updated.')
+    } catch (requestError) {
+      setScheduleErrorMessage(requestError.message)
+    } finally {
+      setIsSavingSchedule(false)
+    }
+  }
+
+  const handleDeleteScheduleSlot = async (slotType, slotId) => {
+    const doctorId = String(profile?.id || currentUser?.id || '').trim()
+    if (!doctorId) {
+      setScheduleErrorMessage('Please log in again to update schedule.')
+      return
+    }
+
+    try {
+      setIsSavingSchedule(true)
+      setScheduleErrorMessage('')
+      setScheduleStatusMessage('')
+      const response = await deleteDoctorScheduleSlot(doctorId, slotType, slotId)
+      setDoctorSchedule(response?.schedule || null)
+      setScheduleStatusMessage('Schedule updated.')
+    } catch (requestError) {
+      setScheduleErrorMessage(requestError.message)
+    } finally {
+      setIsSavingSchedule(false)
     }
   }
 
@@ -714,7 +1002,10 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                   {filteredRecords.map((record) => (
                     <li key={record.id}>
                       <p>
-                        <strong>{record.petName}</strong> ({record.id}) - Owner: {record.ownerName}
+                        <strong>Date:</strong> {record.recordDate || '-'} | <strong>Doctor:</strong> {record.doctorName || '-'}
+                      </p>
+                      <p>
+                        <strong>{record.petName}</strong> ({record.petId || record.id}) - Owner: {record.ownerName}
                       </p>
                       <p>
                         <strong>Past Diagnoses:</strong> {record.diagnosis}
@@ -733,18 +1024,32 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                 </ul>
               </article>
 
-              <article className="dr-card dr-record-entry">
+              <form className="dr-card dr-record-entry" onSubmit={handleMedicalRecordSubmit}>
                 <h3>Add New Record Entry (Doctor Only)</h3>
                 <div className="dr-entry-fields">
-                  <input type="text" placeholder="Pet ID" />
-                  <input type="text" placeholder="Pet Name" />
-                  <input type="text" placeholder="Owner Name" />
-                  <textarea rows="2" placeholder="Diagnosis" />
-                  <textarea rows="2" placeholder="Prescription" />
-                  <textarea rows="2" placeholder="Vaccines / Lab Results" />
+                  <select name="petId" defaultValue="" required>
+                    <option value="" disabled>
+                      Select pet
+                    </option>
+                    {prescriptionPetOptions.map((pet) => (
+                      <option key={pet.id} value={pet.id}>
+                        {pet.name} {pet.ownerName ? `(${pet.ownerName})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <input name="recordDate" type="date" />
+                  <textarea name="diagnosis" rows="2" placeholder="Diagnosis" required />
+                  <textarea name="prescription" rows="2" placeholder="Prescription" required />
+                  <textarea name="vaccine" rows="2" placeholder="Vaccination records" />
+                  <textarea name="labResult" rows="2" placeholder="Lab results" />
+                  <textarea name="notes" rows="2" placeholder="Additional notes" />
                 </div>
-                <button type="button">Add New Record Entry</button>
-              </article>
+                <button type="submit" disabled={isSavingMedicalRecord}>
+                  {isSavingMedicalRecord ? 'Saving...' : 'Add New Record Entry'}
+                </button>
+                {medicalRecordStatusMessage ? <p className="dr-form-success">{medicalRecordStatusMessage}</p> : null}
+                {medicalRecordErrorMessage ? <p className="dr-form-error">{medicalRecordErrorMessage}</p> : null}
+              </form>
             </div>
           ) : activePage === 'Prescriptions Page' ? (
             <div className="dr-prescriptions">
@@ -799,68 +1104,115 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                 </ul>
               </article>
             </div>
-          ) : activePage === 'Doctor Schedule / Availability Page' ? (
+          ) : activePage === 'Doctor Schedule Page' ? (
             <div className="dr-schedule">
-              <article className="dr-card">
+              <form className="dr-card" onSubmit={handleAddAvailableSlot}>
                 <h3>Set Available Time Slots</h3>
                 <div className="dr-entry-fields">
-                  <input type="date" />
-                  <input type="time" />
-                  <input type="time" />
+                  <input name="date" type="date" required />
+                  <input name="startTime" type="time" required />
+                  <input name="endTime" type="time" required />
                 </div>
-                <button type="button">Add Slot</button>
+                <button type="submit" disabled={isSavingSchedule}>
+                  {isSavingSchedule ? 'Saving...' : 'Add Slot'}
+                </button>
                 <ul className="dr-simple-list">
-                  {AVAILABLE_SLOTS.map((slot) => (
-                    <li key={slot}>{slot}</li>
+                  {(doctorSchedule?.availableSlots || []).map((slot) => (
+                    <li key={slot.id}>
+                      <span>
+                        {slot.date} | {slot.startTime} - {slot.endTime}
+                      </span>
+                      <button type="button" onClick={() => handleDeleteScheduleSlot('available', slot.id)}>
+                        Remove
+                      </button>
+                    </li>
                   ))}
                 </ul>
-              </article>
+              </form>
 
-              <article className="dr-card">
+              <form className="dr-card" onSubmit={handleAddBlockedSlot}>
                 <h3>Block Time (Busy)</h3>
                 <div className="dr-entry-fields">
-                  <input type="date" />
-                  <input type="time" />
-                  <input type="time" />
+                  <input name="date" type="date" required />
+                  <input name="startTime" type="time" required />
+                  <input name="endTime" type="time" required />
+                  <input name="reason" type="text" placeholder="Reason (optional)" />
                 </div>
-                <button type="button">Block Time</button>
+                <button type="submit" disabled={isSavingSchedule}>
+                  {isSavingSchedule ? 'Saving...' : 'Block Time'}
+                </button>
                 <ul className="dr-simple-list">
-                  {BUSY_BLOCKS.map((block) => (
-                    <li key={block}>{block}</li>
+                  {(doctorSchedule?.blockedSlots || []).map((slot) => (
+                    <li key={slot.id}>
+                      <span>
+                        {slot.date} | {slot.startTime} - {slot.endTime}
+                        {slot.reason ? ` (${slot.reason})` : ''}
+                      </span>
+                      <button type="button" onClick={() => handleDeleteScheduleSlot('blocked', slot.id)}>
+                        Remove
+                      </button>
+                    </li>
                   ))}
                 </ul>
-              </article>
+              </form>
 
-              <article className="dr-card dr-working-hours">
+              <form className="dr-card dr-working-hours" onSubmit={handleClinicHoursSubmit}>
                 <h3>Clinic Working Hours</h3>
                 <div className="dr-hours-grid">
                   <label>
                     Monday - Friday
-                    <input type="text" defaultValue="09:00 AM - 05:00 PM" />
+                    <input
+                      type="text"
+                      value={clinicHours.mondayFriday}
+                      onChange={(event) => setClinicHours((current) => ({ ...current, mondayFriday: event.target.value }))}
+                    />
                   </label>
                   <label>
                     Saturday
-                    <input type="text" defaultValue="10:00 AM - 02:00 PM" />
+                    <input
+                      type="text"
+                      value={clinicHours.saturday}
+                      onChange={(event) => setClinicHours((current) => ({ ...current, saturday: event.target.value }))}
+                    />
                   </label>
                   <label>
                     Sunday
-                    <input type="text" defaultValue="Closed" />
+                    <input
+                      type="text"
+                      value={clinicHours.sunday}
+                      onChange={(event) => setClinicHours((current) => ({ ...current, sunday: event.target.value }))}
+                    />
                   </label>
                 </div>
-                <button type="button">Save Working Hours</button>
-              </article>
+                <button type="submit" disabled={isSavingSchedule}>
+                  {isSavingSchedule ? 'Saving...' : 'Save Working Hours'}
+                </button>
+                {scheduleStatusMessage ? <p className="dr-form-success">{scheduleStatusMessage}</p> : null}
+                {scheduleErrorMessage ? <p className="dr-form-error">{scheduleErrorMessage}</p> : null}
+              </form>
             </div>
           ) : activePage === 'Profile' ? (
             <div className="dr-profile-settings">
-              <article className="dr-card">
-                <h3>Edit Profile Info</h3>
-                <div className="dr-photo-preview">
-                  {doctorPhotoPreview ? (
-                    <img src={doctorPhotoPreview} alt="Doctor profile preview" />
+              <article className="dr-card dr-profile-summary">
+                <div className="dr-profile-avatar" aria-hidden="true">
+                  {doctorPhotoPreview || profile?.profilePhoto ? (
+                    <img src={doctorPhotoPreview || profile?.profilePhoto} alt="Doctor profile preview" />
                   ) : (
-                    <span>No photo selected</span>
+                    profile?.name?.slice(0, 2).toUpperCase() || 'DR'
                   )}
                 </div>
+                <div className="dr-profile-meta">
+                  <h3>{profile?.name || 'Doctor User'}</h3>
+                  <p>{profile?.role || 'doctor'}</p>
+                  <p>User ID: {profile?.id || '-'}</p>
+                </div>
+                <div className="dr-profile-badges">
+                  <span>On Duty</span>
+                </div>
+              </article>
+
+              <article className="dr-card">
+                <h3>Personal Information</h3>
                 <form
                   className="dr-profile-grid"
                   onSubmit={handleProfileSubmit}
@@ -896,15 +1248,15 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                   </label>
                   <label>
                     Working Days
-                    <input type="text" defaultValue="Monday - Saturday" />
+                    <input name="workingDays" type="text" defaultValue={profile?.workingDays || 'Monday - Saturday'} />
                   </label>
                   <label>
                     Working Hours
-                    <input type="text" defaultValue="09:00 AM - 05:00 PM" />
+                    <input name="workingHours" type="text" defaultValue={profile?.workingHours || '09:00 AM - 05:00 PM'} />
                   </label>
                   <label>
                     Break Time
-                    <input type="text" defaultValue="12:00 PM - 01:00 PM" />
+                    <input name="breakTime" type="text" defaultValue={profile?.breakTime || '12:00 PM - 01:00 PM'} />
                   </label>
                   <button type="submit" disabled={isSavingProfile}>
                     {isSavingProfile ? 'Saving...' : 'Save Profile'}
@@ -915,15 +1267,72 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
               </article>
 
               <article className="dr-card">
-                <h3>Security Settings</h3>
-                <div className="dr-security-actions">
-                  <button type="button">Change Password</button>
-                  <button type="button" className="dr-danger-btn">
-                    Delete Account
+                <h3>Notification Preferences</h3>
+                <p>Choose which updates you want to receive.</p>
+                <form className="dr-toggle-list" onSubmit={handleDoctorNotificationSubmit}>
+                  <label>
+                    <input
+                      name="appointmentRequestAlerts"
+                      type="checkbox"
+                      defaultChecked={Boolean(profile?.notificationPreferences?.appointmentRequestAlerts)}
+                    />
+                    Appointment request alerts
+                  </label>
+                  <label>
+                    <input
+                      name="paymentConfirmationAlerts"
+                      type="checkbox"
+                      defaultChecked={Boolean(profile?.notificationPreferences?.paymentConfirmationAlerts)}
+                    />
+                    Payment confirmation alerts
+                  </label>
+                  <label>
+                    <input
+                      name="doctorScheduleChanges"
+                      type="checkbox"
+                      defaultChecked={Boolean(profile?.notificationPreferences?.doctorScheduleChanges)}
+                    />
+                    Doctor schedule changes
+                  </label>
+                  <label>
+                    <input
+                      name="weeklyPerformanceSummary"
+                      type="checkbox"
+                      defaultChecked={Boolean(profile?.notificationPreferences?.weeklyPerformanceSummary)}
+                    />
+                    Weekly performance summary
+                  </label>
+                  <button type="submit" disabled={isSavingNotifications}>
+                    {isSavingNotifications ? 'Saving...' : 'Save Notification Preferences'}
                   </button>
-                </div>
+                </form>
+                {notificationStatus ? <p className="dr-form-success">{notificationStatus}</p> : null}
+                {notificationError ? <p className="dr-form-error">{notificationError}</p> : null}
+              </article>
+
+              <article className="dr-card">
+                <h3>Security & Account</h3>
+                <form className="dr-profile-grid" onSubmit={handleDoctorPasswordSubmit}>
+                  <label>
+                    Current Password
+                    <input name="currentPassword" type="password" required />
+                  </label>
+                  <label>
+                    New Password
+                    <input name="newPassword" type="password" minLength={8} required />
+                  </label>
+                  <button type="submit" disabled={isChangingPassword}>
+                    {isChangingPassword ? 'Updating...' : 'Change Password'}
+                  </button>
+                </form>
+                {passwordStatus ? <p className="dr-form-success">{passwordStatus}</p> : null}
+                {passwordError ? <p className="dr-form-error">{passwordError}</p> : null}
                 <label className="dr-2fa-toggle">
-                  <input type="checkbox" />
+                  <input
+                    type="checkbox"
+                    checked={Boolean(profile?.twoFactorEnabled)}
+                    onChange={(event) => handleTwoFactorToggle(event.target.checked)}
+                  />
                   <span>Enable Two-Factor Authentication (2FA)</span>
                 </label>
               </article>

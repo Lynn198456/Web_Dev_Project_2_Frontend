@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import '../css/dashboard.css'
 import {
+  changeUserPassword,
   createAppointment,
   createPet,
   deletePetById,
@@ -686,16 +687,66 @@ function MedicalRecordsPage({ pets, appointments }) {
   )
 }
 
-function ProfilePage({ profile, onSaveProfile, isSavingProfile, profileError, profileStatus }) {
+function ProfilePage({
+  profile,
+  onSaveProfile,
+  onSaveNotifications,
+  onChangePassword,
+  onToggleTwoFactor,
+  isSavingProfile,
+  isSavingNotifications,
+  isChangingPassword,
+  profileError,
+  profileStatus,
+  notificationError,
+  notificationStatus,
+  passwordError,
+  passwordStatus,
+}) {
+  const toDataUrl = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error('Unable to read image file.'))
+      reader.readAsDataURL(file)
+    })
+
   const handleSubmit = async (event) => {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
+    let profilePhoto = String(profile?.profilePhoto || '')
+    const photoFile = formData.get('profilePhoto')
+    if (photoFile instanceof File && photoFile.size > 0) {
+      profilePhoto = await toDataUrl(photoFile)
+    }
     await onSaveProfile({
       name: String(formData.get('name') || '').trim(),
       phone: String(formData.get('phone') || '').trim(),
       address: String(formData.get('address') || '').trim(),
       preferredContact: String(formData.get('preferredContact') || 'Email'),
+      profilePhoto,
     })
+  }
+
+  const handleNotificationSubmit = async (event) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    await onSaveNotifications({
+      appointmentRequestAlerts: formData.get('appointmentRequestAlerts') === 'on',
+      paymentConfirmationAlerts: formData.get('paymentConfirmationAlerts') === 'on',
+      doctorScheduleChanges: formData.get('doctorScheduleChanges') === 'on',
+      weeklyPerformanceSummary: formData.get('weeklyPerformanceSummary') === 'on',
+    })
+  }
+
+  const handlePasswordSubmit = async (event) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    await onChangePassword({
+      currentPassword: String(formData.get('currentPassword') || ''),
+      newPassword: String(formData.get('newPassword') || ''),
+    })
+    event.currentTarget.reset()
   }
 
   return (
@@ -708,14 +759,14 @@ function ProfilePage({ profile, onSaveProfile, isSavingProfile, profileError, pr
       <section className="po-profile-layout">
         <article className="po-card po-profile-summary">
           <div className="po-profile-avatar" aria-hidden="true">
-            {profile?.name?.slice(0, 2).toUpperCase() || 'PO'}
+            {profile?.profilePhoto ? <img src={profile.profilePhoto} alt="Profile" /> : profile?.name?.slice(0, 2).toUpperCase() || 'PO'}
           </div>
           <div>
-            <h4>{profile?.name || 'Pet Owner'}</h4>
-            <p>Pet Owner ID: {profile?.id || '-'}</p>
-            <p>Member since 2024</p>
+            <h4>{profile?.name || 'User'}</h4>
+            <p>{profile?.role || 'pet-owner'}</p>
+            <p>User ID: {profile?.id || '-'}</p>
           </div>
-          <span className="po-profile-badge">Profile 90% complete</span>
+          <span className="po-profile-badge">Active</span>
         </article>
 
         <article className="po-card">
@@ -741,6 +792,10 @@ function ProfilePage({ profile, onSaveProfile, isSavingProfile, profileError, pr
                 <option>SMS</option>
               </select>
             </label>
+            <label>
+              Profile Photo
+              <input name="profilePhoto" type="file" accept="image/*" />
+            </label>
             <label className="po-profile-full">
               Address
               <input name="address" type="text" defaultValue={profile?.address || ''} />
@@ -755,32 +810,74 @@ function ProfilePage({ profile, onSaveProfile, isSavingProfile, profileError, pr
 
         <article className="po-card">
           <h3>Notification Preferences</h3>
-          <div className="po-pref-list">
+          <p>Choose which updates you want to receive.</p>
+          <form className="po-pref-list" onSubmit={handleNotificationSubmit}>
             <label>
-              <input type="checkbox" defaultChecked />
-              Appointment reminders
+              <input
+                name="appointmentRequestAlerts"
+                type="checkbox"
+                defaultChecked={Boolean(profile?.notificationPreferences?.appointmentRequestAlerts)}
+              />
+              Appointment request alerts
             </label>
             <label>
-              <input type="checkbox" defaultChecked />
-              Vaccination reminders
+              <input
+                name="paymentConfirmationAlerts"
+                type="checkbox"
+                defaultChecked={Boolean(profile?.notificationPreferences?.paymentConfirmationAlerts)}
+              />
+              Payment confirmation alerts
             </label>
             <label>
-              <input type="checkbox" defaultChecked />
-              Medical record updates
+              <input
+                name="doctorScheduleChanges"
+                type="checkbox"
+                defaultChecked={Boolean(profile?.notificationPreferences?.doctorScheduleChanges)}
+              />
+              Doctor schedule changes
             </label>
             <label>
-              <input type="checkbox" />
-              Promotional updates
+              <input
+                name="weeklyPerformanceSummary"
+                type="checkbox"
+                defaultChecked={Boolean(profile?.notificationPreferences?.weeklyPerformanceSummary)}
+              />
+              Weekly performance summary
             </label>
-          </div>
+            <button type="submit" className="po-profile-save" disabled={isSavingNotifications}>
+              {isSavingNotifications ? 'Saving...' : 'Save Notification Preferences'}
+            </button>
+          </form>
+          {notificationStatus ? <p className="po-form-success">{notificationStatus}</p> : null}
+          {notificationError ? <p className="po-form-error">{notificationError}</p> : null}
         </article>
 
         <article className="po-card">
-          <h3>Security</h3>
+          <h3>Security & Account</h3>
+          <form className="po-profile-form" onSubmit={handlePasswordSubmit}>
+            <label>
+              Current Password
+              <input name="currentPassword" type="password" required />
+            </label>
+            <label>
+              New Password
+              <input name="newPassword" type="password" minLength={8} required />
+            </label>
+            <button type="submit" className="po-profile-save" disabled={isChangingPassword}>
+              {isChangingPassword ? 'Updating...' : 'Change Password'}
+            </button>
+          </form>
+          {passwordStatus ? <p className="po-form-success">{passwordStatus}</p> : null}
+          {passwordError ? <p className="po-form-error">{passwordError}</p> : null}
           <div className="po-security-actions">
-            <button type="button">Change Password</button>
-            <button type="button">Enable Two-Factor Authentication</button>
-            <button type="button">Manage Linked Devices</button>
+            <label>
+              <input
+                type="checkbox"
+                checked={Boolean(profile?.twoFactorEnabled)}
+                onChange={(event) => onToggleTwoFactor(event.target.checked)}
+              />
+              Enable Two-Factor Authentication
+            </label>
           </div>
         </article>
       </section>
@@ -797,6 +894,12 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [profileError, setProfileError] = useState('')
   const [profileStatus, setProfileStatus] = useState('')
+  const [isSavingNotifications, setIsSavingNotifications] = useState(false)
+  const [notificationError, setNotificationError] = useState('')
+  const [notificationStatus, setNotificationStatus] = useState('')
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordStatus, setPasswordStatus] = useState('')
   const isPetOwner = role === 'pet-owner' || !role
 
   useEffect(() => {
@@ -947,6 +1050,60 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
     }
   }
 
+  const handleSaveNotifications = async (notificationPreferences) => {
+    if (!profile?.id) {
+      setNotificationError('Please log in again to update notification preferences.')
+      return
+    }
+
+    try {
+      setIsSavingNotifications(true)
+      setNotificationError('')
+      setNotificationStatus('')
+      const response = await updateUserProfile(profile.id, { notificationPreferences })
+      setProfile(response?.user || profile)
+      setNotificationStatus('Notification preferences updated.')
+    } catch (requestError) {
+      setNotificationError(requestError.message)
+    } finally {
+      setIsSavingNotifications(false)
+    }
+  }
+
+  const handleChangePassword = async ({ currentPassword, newPassword }) => {
+    if (!profile?.id) {
+      setPasswordError('Please log in again to change password.')
+      return
+    }
+
+    try {
+      setIsChangingPassword(true)
+      setPasswordError('')
+      setPasswordStatus('')
+      await changeUserPassword(profile.id, { currentPassword, newPassword })
+      setPasswordStatus('Password updated successfully.')
+    } catch (requestError) {
+      setPasswordError(requestError.message)
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
+  const handleToggleTwoFactor = async (enabled) => {
+    if (!profile?.id) {
+      setProfileError('Please log in again to update 2FA.')
+      return
+    }
+    try {
+      setProfileError('')
+      const response = await updateUserProfile(profile.id, { twoFactorEnabled: enabled })
+      setProfile(response?.user || profile)
+      setProfileStatus(enabled ? 'Two-Factor Authentication enabled.' : 'Two-Factor Authentication disabled.')
+    } catch (requestError) {
+      setProfileError(requestError.message)
+    }
+  }
+
   return (
     <main className="po-screen">
       <section className="po-stage">
@@ -1028,9 +1185,18 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
                 <ProfilePage
                   profile={profile}
                   onSaveProfile={handleSaveProfile}
+                  onSaveNotifications={handleSaveNotifications}
+                  onChangePassword={handleChangePassword}
+                  onToggleTwoFactor={handleToggleTwoFactor}
                   isSavingProfile={isSavingProfile}
+                  isSavingNotifications={isSavingNotifications}
+                  isChangingPassword={isChangingPassword}
                   profileError={profileError}
                   profileStatus={profileStatus}
+                  notificationError={notificationError}
+                  notificationStatus={notificationStatus}
+                  passwordError={passwordError}
+                  passwordStatus={passwordStatus}
                 />
               ) : (
                 <section className="po-placeholder">

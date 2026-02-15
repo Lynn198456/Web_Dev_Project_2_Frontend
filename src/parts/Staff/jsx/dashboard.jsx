@@ -1,14 +1,28 @@
 import { useEffect, useState } from 'react'
 import '../css/dashboard.css'
 import {
+  addDoctorAvailableSlot,
+  addDoctorBlockedSlot,
+  changeUserPassword,
+  createBillingRecord,
   createAppointment,
+  createReportSnapshot,
   createPet,
+  deleteDoctorScheduleSlot,
   deletePetById,
+  getBillingReceiptById,
+  getDoctorSchedule,
   getUserProfile,
+  listBillingRecords,
+  listReportSnapshots,
   listAppointments,
   listPets,
+  getReportsAnalytics,
   listUsers,
+  recordBillingPaymentById,
   registerUser,
+  updateBillingChargesById,
+  updateDoctorClinicHours,
   updateAppointmentById,
   updatePetById,
   updateUserProfile,
@@ -100,7 +114,7 @@ const STAFF_DASHBOARD_METRICS = [
   { title: 'Pending Appointment Requests', value: '6', note: 'Awaiting confirmation' },
   { title: 'Total Doctors Available', value: '9', note: 'On active shift' },
   { title: 'Walk-in Patients', value: '5', note: 'Checked in today' },
-  { title: 'Payment Summary (Today)', value: '$2,450', note: 'Collected payments' },
+  { title: 'Payment Summary (Today)', value: '฿2,450', note: 'Collected payments' },
 ]
 
 const STAFF_QUICK_ACTIONS = [
@@ -110,47 +124,23 @@ const STAFF_QUICK_ACTIONS = [
   { title: 'Generate Invoice', text: 'Create bill and move to payment flow.' },
 ]
 
-const DOCTOR_AVAILABILITY = [
-  { doctor: 'Dr. Sarah Khan', slot: '09:00 AM - 05:00 PM', status: 'Available' },
-  { doctor: 'Dr. Michael Reed', slot: '10:00 AM - 06:00 PM', status: 'Available' },
-  { doctor: 'Dr. Olivia Grant', slot: '09:30 AM - 03:30 PM', status: 'Partially Available' },
-]
-
-const EMERGENCY_SLOTS = ['11:30 AM - 12:00 PM (Dr. Sarah Khan)', '04:30 PM - 05:00 PM (Dr. Michael Reed)']
-
-const STAFF_REPORT_METRICS = [
-  { title: 'Daily Income', value: '$2,450', note: 'Today collected amount' },
-  { title: 'Monthly Income', value: '$58,920', note: 'Current month total' },
-  { title: 'Most Visited Doctor', value: 'Dr. Sarah Khan', note: 'Highest appointment count' },
-  { title: 'Most Common Pet Illness', value: 'Skin Allergy', note: 'Top diagnosis trend' },
-  { title: 'Total Appointments Per Month', value: '512', note: 'Appointments this month' },
-]
-
-const REPORT_TREND_ROWS = [
-  { period: 'Week 1', income: '$13,200', appointments: 118, topDoctor: 'Dr. Sarah Khan' },
-  { period: 'Week 2', income: '$14,680', appointments: 124, topDoctor: 'Dr. Michael Reed' },
-  { period: 'Week 3', income: '$15,140', appointments: 131, topDoctor: 'Dr. Sarah Khan' },
-  { period: 'Week 4', income: '$15,900', appointments: 139, topDoctor: 'Dr. Sarah Khan' },
-]
-
-const BILLING_SUMMARY = [
-  { title: 'Invoices Today', value: '14' },
-  { title: 'Collected Today', value: '$2,450' },
-  { title: 'Pending Payments', value: '$620' },
-]
-
-const PAYMENT_HISTORY = [
-  { invoice: 'INV-3001', owner: 'Jonathan Smith', pet: 'Bella', amount: '$180', method: 'Card', status: 'Paid' },
-  { invoice: 'INV-3002', owner: 'Emma Davis', pet: 'Max', amount: '$95', method: 'Cash', status: 'Paid' },
-  { invoice: 'INV-3003', owner: 'Noah Patel', pet: 'Luna', amount: '$140', method: 'UPI', status: 'Pending' },
-  { invoice: 'INV-3004', owner: 'Sophia Lee', pet: 'Rocky', amount: '$220', method: 'Card', status: 'Paid' },
-]
-
 function isPetOwnerRole(role) {
   const normalized = String(role || '')
     .trim()
     .toLowerCase()
   return normalized === 'pet-owner' || normalized === 'petowner' || normalized === 'pet owner'
+}
+
+function isDoctorRole(role) {
+  return String(role || '').trim().toLowerCase() === 'doctor'
+}
+
+function formatBaht(value) {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) {
+    return '฿0.00'
+  }
+  return `฿${numeric.toFixed(2)}`
 }
 
 export default function StaffDashboard({ currentUser, onLogout }) {
@@ -172,10 +162,46 @@ export default function StaffDashboard({ currentUser, onLogout }) {
   const [petRecordError, setPetRecordError] = useState('')
   const [petRecordStatusMessage, setPetRecordStatusMessage] = useState('')
   const [petSearch, setPetSearch] = useState('')
+  const [doctors, setDoctors] = useState([])
+  const [selectedDoctorId, setSelectedDoctorId] = useState('')
+  const [doctorSchedule, setDoctorSchedule] = useState(null)
+  const [isLoadingSchedule, setIsLoadingSchedule] = useState(false)
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false)
+  const [scheduleError, setScheduleError] = useState('')
+  const [scheduleStatusMessage, setScheduleStatusMessage] = useState('')
+  const [clinicHours, setClinicHours] = useState({
+    mondayFriday: '09:00 AM - 05:00 PM',
+    saturday: '10:00 AM - 02:00 PM',
+    sunday: 'Closed',
+  })
+  const [billingRecords, setBillingRecords] = useState([])
+  const [isLoadingBilling, setIsLoadingBilling] = useState(false)
+  const [isSavingBilling, setIsSavingBilling] = useState(false)
+  const [billingError, setBillingError] = useState('')
+  const [billingStatusMessage, setBillingStatusMessage] = useState('')
+  const [selectedBillingId, setSelectedBillingId] = useState('')
+  const [reportRange, setReportRange] = useState('this-month')
+  const [reportDoctor, setReportDoctor] = useState('All')
+  const [reportType, setReportType] = useState('Financial + Operational')
+  const [reportFromDate, setReportFromDate] = useState('')
+  const [reportToDate, setReportToDate] = useState('')
+  const [reportMetrics, setReportMetrics] = useState([])
+  const [reportTrendRows, setReportTrendRows] = useState([])
+  const [reportInsights, setReportInsights] = useState([])
+  const [reportSnapshots, setReportSnapshots] = useState([])
+  const [isLoadingReports, setIsLoadingReports] = useState(false)
+  const [reportError, setReportError] = useState('')
+  const [reportStatusMessage, setReportStatusMessage] = useState('')
   const [profile, setProfile] = useState(currentUser || null)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [profileStatus, setProfileStatus] = useState('')
   const [profileError, setProfileError] = useState('')
+  const [isSavingStaffNotifications, setIsSavingStaffNotifications] = useState(false)
+  const [staffNotificationStatus, setStaffNotificationStatus] = useState('')
+  const [staffNotificationError, setStaffNotificationError] = useState('')
+  const [isChangingStaffPassword, setIsChangingStaffPassword] = useState(false)
+  const [staffPasswordStatus, setStaffPasswordStatus] = useState('')
+  const [staffPasswordError, setStaffPasswordError] = useState('')
   const activeContent = STAFF_CONTENT[activePage] || STAFF_CONTENT.Dashboard
   const todayDashboardDate = new Date().toISOString().slice(0, 10)
   const todayAppointments = appointments.filter((item) => item.appointmentDate === todayDashboardDate)
@@ -209,6 +235,22 @@ export default function StaffDashboard({ currentUser, onLogout }) {
       String(pet.id || '').toLowerCase().includes(query)
     )
   })
+  const selectedDoctor = doctors.find((doctor) => doctor.id === selectedDoctorId) || null
+  const availableSlots = Array.isArray(doctorSchedule?.availableSlots) ? doctorSchedule.availableSlots : []
+  const blockedSlots = Array.isArray(doctorSchedule?.blockedSlots) ? doctorSchedule.blockedSlots : []
+  const emergencySlots = availableSlots.filter((slot) => slot.slotType === 'emergency')
+  const selectedBillingRecord = billingRecords.find((item) => item.id === selectedBillingId) || null
+  const totalCollected = billingRecords
+    .filter((item) => item.paymentStatus === 'Paid')
+    .reduce((sum, item) => sum + Number(item.totalAmount || 0), 0)
+  const totalPending = billingRecords
+    .filter((item) => item.paymentStatus === 'Pending')
+    .reduce((sum, item) => sum + Number(item.totalAmount || 0), 0)
+  const billingSummary = [
+    { title: 'Invoices Total', value: String(billingRecords.length) },
+    { title: 'Collected', value: formatBaht(totalCollected) },
+    { title: 'Pending', value: formatBaht(totalPending) },
+  ]
 
   useEffect(() => {
     let cancelled = false
@@ -232,6 +274,159 @@ export default function StaffDashboard({ currentUser, onLogout }) {
       cancelled = true
     }
   }, [])
+
+  const loadBillingData = async () => {
+    const response = await listBillingRecords()
+    const records = Array.isArray(response?.records) ? response.records : []
+    return records
+  }
+
+  const loadReportsData = async (overrides = {}) => {
+    const query = {
+      range: overrides.range ?? reportRange,
+      doctorName: overrides.doctorName ?? reportDoctor,
+      reportType: overrides.reportType ?? reportType,
+      fromDate: overrides.fromDate ?? reportFromDate,
+      toDate: overrides.toDate ?? reportToDate,
+    }
+    const response = await getReportsAnalytics(query)
+    return response?.report || null
+  }
+
+  const loadReportSnapshotsData = async () => {
+    const response = await listReportSnapshots()
+    return Array.isArray(response?.snapshots) ? response.snapshots : []
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadBilling = async () => {
+      try {
+        setIsLoadingBilling(true)
+        setBillingError('')
+        const records = await loadBillingData()
+        if (!cancelled) {
+          setBillingRecords(records)
+          setSelectedBillingId((current) => (current && records.some((item) => item.id === current) ? current : records[0]?.id || ''))
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setBillingRecords([])
+          setSelectedBillingId('')
+          setBillingError(requestError.message)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingBilling(false)
+        }
+      }
+    }
+
+    loadBilling()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadReports = async () => {
+      try {
+        setIsLoadingReports(true)
+        setReportError('')
+        const [report, snapshots] = await Promise.all([loadReportsData(), loadReportSnapshotsData()])
+        if (!cancelled) {
+          setReportMetrics(Array.isArray(report?.metrics) ? report.metrics : [])
+          setReportTrendRows(Array.isArray(report?.trendRows) ? report.trendRows : [])
+          setReportInsights(Array.isArray(report?.insights) ? report.insights : [])
+          setReportSnapshots(snapshots)
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setReportMetrics([])
+          setReportTrendRows([])
+          setReportInsights([])
+          setReportSnapshots([])
+          setReportError(requestError.message)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingReports(false)
+        }
+      }
+    }
+
+    loadReports()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadDoctors = async () => {
+      try {
+        setScheduleError('')
+        const doctorList = await loadDoctorDirectory()
+        if (!cancelled) {
+          setDoctors(doctorList)
+          setSelectedDoctorId((current) => (current && doctorList.some((item) => item.id === current) ? current : doctorList[0]?.id || ''))
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setDoctors([])
+          setSelectedDoctorId('')
+          setScheduleError(requestError.message)
+        }
+      }
+    }
+
+    loadDoctors()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadSchedule = async () => {
+      if (!selectedDoctor) {
+        setDoctorSchedule(null)
+        return
+      }
+      try {
+        setIsLoadingSchedule(true)
+        setScheduleError('')
+        const schedule = await loadDoctorScheduleData(selectedDoctor)
+        if (!cancelled) {
+          setDoctorSchedule(schedule)
+          setClinicHours({
+            mondayFriday: schedule?.clinicHours?.mondayFriday || '09:00 AM - 05:00 PM',
+            saturday: schedule?.clinicHours?.saturday || '10:00 AM - 02:00 PM',
+            sunday: schedule?.clinicHours?.sunday || 'Closed',
+          })
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setDoctorSchedule(null)
+          setScheduleError(requestError.message)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingSchedule(false)
+        }
+      }
+    }
+
+    loadSchedule()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedDoctorId, selectedDoctor?.id, selectedDoctor?.name])
 
   const loadPetRecordsData = async () => {
     const response = await listPets()
@@ -305,6 +500,26 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     }
   }
 
+  const loadDoctorDirectory = async () => {
+    const response = await listUsers({ role: 'doctor' })
+    const users = Array.isArray(response?.users) ? response.users : []
+    return users
+      .filter((user) => isDoctorRole(user.role))
+      .map((user) => ({
+        id: String(user.id || ''),
+        name: String(user.name || ''),
+        email: String(user.email || ''),
+      }))
+  }
+
+  const loadDoctorScheduleData = async (doctor) => {
+    if (!doctor?.id) {
+      return null
+    }
+    const response = await getDoctorSchedule(doctor.id, doctor.name ? { doctorName: doctor.name } : {})
+    return response?.schedule || null
+  }
+
   useEffect(() => {
     let cancelled = false
 
@@ -371,11 +586,22 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     }
 
     const formData = new FormData(event.currentTarget)
+    let profilePhoto = String(profile?.profilePhoto || '')
+    const photoFile = formData.get('profilePhoto')
+    if (photoFile instanceof File && photoFile.size > 0) {
+      profilePhoto = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result || ''))
+        reader.onerror = () => reject(new Error('Unable to read image file.'))
+        reader.readAsDataURL(photoFile)
+      })
+    }
     const updates = {
       name: String(formData.get('name') || '').trim(),
       phone: String(formData.get('phone') || '').trim(),
       address: String(formData.get('address') || '').trim(),
       preferredContact: String(formData.get('preferredContact') || 'Email'),
+      profilePhoto,
     }
 
     try {
@@ -685,6 +911,374 @@ export default function StaffDashboard({ currentUser, onLogout }) {
 
   const handleUploadPetDocument = (pet) => {
     window.alert(`Document upload for ${pet.name} is UI-only right now. Backend storage is not configured yet.`)
+  }
+
+  const handleStaffNotificationSubmit = async (event) => {
+    event.preventDefault()
+    if (!profile?.id) {
+      setStaffNotificationError('Please log in again to update notification settings.')
+      return
+    }
+    const formData = new FormData(event.currentTarget)
+    const notificationPreferences = {
+      appointmentRequestAlerts: formData.get('appointmentRequestAlerts') === 'on',
+      paymentConfirmationAlerts: formData.get('paymentConfirmationAlerts') === 'on',
+      doctorScheduleChanges: formData.get('doctorScheduleChanges') === 'on',
+      weeklyPerformanceSummary: formData.get('weeklyPerformanceSummary') === 'on',
+      appointmentReminders: Boolean(profile?.notificationPreferences?.appointmentReminders),
+      vaccinationReminders: Boolean(profile?.notificationPreferences?.vaccinationReminders),
+      medicalRecordUpdates: Boolean(profile?.notificationPreferences?.medicalRecordUpdates),
+      promotionalUpdates: Boolean(profile?.notificationPreferences?.promotionalUpdates),
+    }
+
+    try {
+      setIsSavingStaffNotifications(true)
+      setStaffNotificationError('')
+      setStaffNotificationStatus('')
+      const response = await updateUserProfile(profile.id, { notificationPreferences })
+      setProfile(response?.user || profile)
+      setStaffNotificationStatus('Notification preferences updated.')
+    } catch (requestError) {
+      setStaffNotificationError(requestError.message)
+    } finally {
+      setIsSavingStaffNotifications(false)
+    }
+  }
+
+  const handleStaffPasswordSubmit = async (event) => {
+    event.preventDefault()
+    if (!profile?.id) {
+      setStaffPasswordError('Please log in again to change password.')
+      return
+    }
+
+    const formData = new FormData(event.currentTarget)
+    const currentPassword = String(formData.get('currentPassword') || '')
+    const newPassword = String(formData.get('newPassword') || '')
+
+    try {
+      setIsChangingStaffPassword(true)
+      setStaffPasswordError('')
+      setStaffPasswordStatus('')
+      await changeUserPassword(profile.id, { currentPassword, newPassword })
+      setStaffPasswordStatus('Password updated successfully.')
+      event.currentTarget.reset()
+    } catch (requestError) {
+      setStaffPasswordError(requestError.message)
+    } finally {
+      setIsChangingStaffPassword(false)
+    }
+  }
+
+  const handleStaffTwoFactorToggle = async (enabled) => {
+    if (!profile?.id) {
+      setProfileError('Please log in again to update 2FA.')
+      return
+    }
+    try {
+      const response = await updateUserProfile(profile.id, { twoFactorEnabled: enabled })
+      setProfile(response?.user || profile)
+      setProfileStatus(enabled ? 'Two-Factor Authentication enabled.' : 'Two-Factor Authentication disabled.')
+    } catch (requestError) {
+      setProfileError(requestError.message)
+    }
+  }
+
+  const refreshSelectedDoctorSchedule = async () => {
+    if (!selectedDoctor) {
+      setDoctorSchedule(null)
+      return
+    }
+    const schedule = await loadDoctorScheduleData(selectedDoctor)
+    setDoctorSchedule(schedule)
+    setClinicHours({
+      mondayFriday: schedule?.clinicHours?.mondayFriday || '09:00 AM - 05:00 PM',
+      saturday: schedule?.clinicHours?.saturday || '10:00 AM - 02:00 PM',
+      sunday: schedule?.clinicHours?.sunday || 'Closed',
+    })
+  }
+
+  const handleBlockUnavailableTime = async (event) => {
+    event.preventDefault()
+    if (!selectedDoctor) {
+      setScheduleError('Select a doctor first.')
+      return
+    }
+    const formData = new FormData(event.currentTarget)
+    const body = {
+      doctorName: selectedDoctor.name,
+      date: String(formData.get('date') || '').trim(),
+      startTime: String(formData.get('startTime') || '').trim(),
+      endTime: String(formData.get('endTime') || '').trim(),
+      reason: String(formData.get('reason') || '').trim() || 'Busy',
+    }
+    try {
+      setIsSavingSchedule(true)
+      setScheduleError('')
+      setScheduleStatusMessage('')
+      const response = await addDoctorBlockedSlot(selectedDoctor.id, body)
+      const schedule = response?.schedule || null
+      setDoctorSchedule(schedule)
+      setScheduleStatusMessage('Unavailable time blocked.')
+      event.currentTarget.reset()
+    } catch (requestError) {
+      setScheduleError(requestError.message)
+    } finally {
+      setIsSavingSchedule(false)
+    }
+  }
+
+  const handleAssignEmergencySlot = async (event) => {
+    event.preventDefault()
+    if (!selectedDoctor) {
+      setScheduleError('Select a doctor first.')
+      return
+    }
+    const formData = new FormData(event.currentTarget)
+    const body = {
+      doctorName: selectedDoctor.name,
+      date: String(formData.get('date') || '').trim(),
+      startTime: String(formData.get('startTime') || '').trim(),
+      endTime: String(formData.get('endTime') || '').trim(),
+      slotType: 'emergency',
+    }
+    try {
+      setIsSavingSchedule(true)
+      setScheduleError('')
+      setScheduleStatusMessage('')
+      const response = await addDoctorAvailableSlot(selectedDoctor.id, body)
+      setDoctorSchedule(response?.schedule || null)
+      setScheduleStatusMessage('Emergency slot assigned.')
+      event.currentTarget.reset()
+    } catch (requestError) {
+      setScheduleError(requestError.message)
+    } finally {
+      setIsSavingSchedule(false)
+    }
+  }
+
+  const handleSaveClinicHours = async (event) => {
+    event.preventDefault()
+    if (!selectedDoctor) {
+      setScheduleError('Select a doctor first.')
+      return
+    }
+    try {
+      setIsSavingSchedule(true)
+      setScheduleError('')
+      setScheduleStatusMessage('')
+      const response = await updateDoctorClinicHours(selectedDoctor.id, {
+        doctorName: selectedDoctor.name,
+        mondayFriday: clinicHours.mondayFriday,
+        saturday: clinicHours.saturday,
+        sunday: clinicHours.sunday,
+      })
+      setDoctorSchedule(response?.schedule || null)
+      setScheduleStatusMessage('Clinic hours updated.')
+    } catch (requestError) {
+      setScheduleError(requestError.message)
+    } finally {
+      setIsSavingSchedule(false)
+    }
+  }
+
+  const handleRemoveScheduleSlot = async (slotType, slotId) => {
+    if (!selectedDoctor) {
+      return
+    }
+    try {
+      setIsSavingSchedule(true)
+      setScheduleError('')
+      setScheduleStatusMessage('')
+      const response = await deleteDoctorScheduleSlot(selectedDoctor.id, slotType, slotId)
+      setDoctorSchedule(response?.schedule || null)
+      setScheduleStatusMessage('Slot removed.')
+    } catch (requestError) {
+      setScheduleError(requestError.message)
+    } finally {
+      setIsSavingSchedule(false)
+    }
+  }
+
+  const handleGenerateInvoice = async (event) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    const payload = {
+      invoiceId: String(formData.get('invoiceId') || '').trim(),
+      appointmentId: String(formData.get('appointmentId') || '').trim(),
+      ownerName: String(formData.get('ownerName') || '').trim(),
+      petName: String(formData.get('petName') || '').trim(),
+      doctorName: String(formData.get('doctorName') || '').trim(),
+    }
+
+    try {
+      setIsSavingBilling(true)
+      setBillingError('')
+      setBillingStatusMessage('')
+      const response = await createBillingRecord(payload)
+      const created = response?.record
+      if (created) {
+        setBillingRecords((current) => [created, ...current])
+        setSelectedBillingId(created.id)
+      }
+      setBillingStatusMessage('Invoice generated successfully.')
+      event.currentTarget.reset()
+    } catch (requestError) {
+      setBillingError(requestError.message)
+    } finally {
+      setIsSavingBilling(false)
+    }
+  }
+
+  const handleSaveCharges = async (event) => {
+    event.preventDefault()
+    if (!selectedBillingRecord?.id) {
+      setBillingError('Select an invoice first.')
+      return
+    }
+    const formData = new FormData(event.currentTarget)
+    const payload = {
+      consultationFee: Number(formData.get('consultationFee') || 0),
+      serviceCharges: Number(formData.get('serviceCharges') || 0),
+      medicineCharges: Number(formData.get('medicineCharges') || 0),
+      labCharges: Number(formData.get('labCharges') || 0),
+    }
+
+    try {
+      setIsSavingBilling(true)
+      setBillingError('')
+      setBillingStatusMessage('')
+      const response = await updateBillingChargesById(selectedBillingRecord.id, payload)
+      const updated = response?.record
+      if (updated) {
+        setBillingRecords((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+      }
+      setBillingStatusMessage('Charges saved.')
+    } catch (requestError) {
+      setBillingError(requestError.message)
+    } finally {
+      setIsSavingBilling(false)
+    }
+  }
+
+  const handleRecordPayment = async (event) => {
+    event.preventDefault()
+    if (!selectedBillingRecord?.id) {
+      setBillingError('Select an invoice first.')
+      return
+    }
+    const formData = new FormData(event.currentTarget)
+    const payload = {
+      paymentMethod: String(formData.get('paymentMethod') || '').trim(),
+      paymentDate: String(formData.get('paymentDate') || '').trim(),
+      referenceNumber: String(formData.get('referenceNumber') || '').trim(),
+      paymentStatus: String(formData.get('paymentStatus') || 'Pending').trim(),
+    }
+
+    try {
+      setIsSavingBilling(true)
+      setBillingError('')
+      setBillingStatusMessage('')
+      const response = await recordBillingPaymentById(selectedBillingRecord.id, payload)
+      const updated = response?.record
+      if (updated) {
+        setBillingRecords((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+      }
+      setBillingStatusMessage('Payment recorded.')
+    } catch (requestError) {
+      setBillingError(requestError.message)
+    } finally {
+      setIsSavingBilling(false)
+    }
+  }
+
+  const handleViewReceipt = async (billingId) => {
+    try {
+      setBillingError('')
+      const response = await getBillingReceiptById(billingId)
+      const receipt = response?.receipt
+      if (!receipt) {
+        return
+      }
+      window.alert(
+        `Invoice: ${receipt.invoiceId}\nOwner: ${receipt.ownerName}\nPet: ${receipt.petName}\nDoctor: ${
+          receipt.doctorName || '-'
+        }\nAppointment: ${
+          receipt.appointmentId || '-'
+        }\nConsultation: ${receipt.consultationFee}\nService: ${receipt.serviceCharges}\nMedicine: ${receipt.medicineCharges}\nLab: ${
+          receipt.labCharges
+        }\nTotal: ${receipt.totalAmount}\nStatus: ${receipt.paymentStatus}\nMethod: ${receipt.paymentMethod}\nDate: ${
+          receipt.paymentDate
+        }\nReference: ${receipt.referenceNumber}`
+      )
+    } catch (requestError) {
+      setBillingError(requestError.message)
+    }
+  }
+
+  const handlePrintReceipt = async () => {
+    if (!selectedBillingRecord?.id) {
+      setBillingError('Select an invoice first.')
+      return
+    }
+    await handleViewReceipt(selectedBillingRecord.id)
+    window.print()
+  }
+
+  const handleApplyReportFilters = async () => {
+    try {
+      setIsLoadingReports(true)
+      setReportError('')
+      setReportStatusMessage('')
+      const report = await loadReportsData()
+      setReportMetrics(Array.isArray(report?.metrics) ? report.metrics : [])
+      setReportTrendRows(Array.isArray(report?.trendRows) ? report.trendRows : [])
+      setReportInsights(Array.isArray(report?.insights) ? report.insights : [])
+      setReportStatusMessage('Report refreshed.')
+    } catch (requestError) {
+      setReportError(requestError.message)
+    } finally {
+      setIsLoadingReports(false)
+    }
+  }
+
+  const handleSaveReportSnapshot = async () => {
+    try {
+      setReportError('')
+      setReportStatusMessage('')
+      await createReportSnapshot({
+        range: reportRange,
+        doctorName: reportDoctor,
+        reportType,
+        fromDate: reportFromDate,
+        toDate: reportToDate,
+      })
+      const snapshots = await loadReportSnapshotsData()
+      setReportSnapshots(snapshots)
+      setReportStatusMessage('Report snapshot saved to database.')
+    } catch (requestError) {
+      setReportError(requestError.message)
+    }
+  }
+
+  const handleExportReportCsv = () => {
+    const rows = ['Period,Income,Appointments,Top Doctor']
+    reportTrendRows.forEach((row) => {
+      rows.push(`${row.period},${row.income},${row.appointments},${row.topDoctor}`)
+    })
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.href = url
+    link.setAttribute('download', `staff-report-${Date.now()}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleExportReportPdf = () => {
+    window.print()
   }
 
   return (
@@ -1072,104 +1666,187 @@ export default function StaffDashboard({ currentUser, onLogout }) {
             <div className="st-appointments">
               <article className="st-card">
                 <h3>View Doctor Availability</h3>
+                <div className="st-filters">
+                  <label>
+                    Doctor
+                    <select value={selectedDoctorId} onChange={(event) => setSelectedDoctorId(event.target.value)}>
+                      {doctors.length ? (
+                        doctors.map((doctor) => (
+                          <option key={doctor.id} value={doctor.id}>
+                            {doctor.name}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="">No doctors found</option>
+                      )}
+                    </select>
+                  </label>
+                </div>
+                <button type="button" className="st-plain-btn" onClick={refreshSelectedDoctorSchedule} disabled={isLoadingSchedule || !selectedDoctor}>
+                  {isLoadingSchedule ? 'Loading...' : 'Refresh Availability'}
+                </button>
                 <ul className="st-appointment-list">
-                  {DOCTOR_AVAILABILITY.map((entry) => (
-                    <li key={`${entry.doctor}-${entry.slot}`}>
+                  {isLoadingSchedule ? (
+                    <li>
                       <div>
-                        <strong>{entry.doctor}</strong>
-                        <p>{entry.slot}</p>
-                        <p>Status: {entry.status}</p>
+                        <strong>Loading schedule...</strong>
+                      </div>
+                    </li>
+                  ) : availableSlots.length ? (
+                    availableSlots.map((slot) => (
+                    <li key={slot.id}>
+                      <div>
+                        <strong>{selectedDoctor?.name || 'Doctor'}</strong>
+                        <p>
+                          {slot.date} | {slot.startTime} - {slot.endTime}
+                        </p>
+                        <p>Status: {slot.slotType === 'emergency' ? 'Emergency Slot' : 'Available'}</p>
+                      </div>
+                      <div className="st-appointment-actions">
+                        <button type="button" onClick={() => handleRemoveScheduleSlot('available', slot.id)}>
+                          Remove
+                        </button>
+                      </div>
+                    </li>
+                    ))
+                  ) : (
+                    <li>
+                      <div>
+                        <strong>No availability slots set.</strong>
+                      </div>
+                    </li>
+                  )}
+                </ul>
+                {scheduleStatusMessage ? <p className="st-form-success">{scheduleStatusMessage}</p> : null}
+                {scheduleError ? <p className="st-form-error">{scheduleError}</p> : null}
+              </article>
+
+              <form className="st-card" onSubmit={handleBlockUnavailableTime}>
+                <h3>Block Unavailable Time</h3>
+                <div className="st-filters">
+                  <label>
+                    Date
+                    <input name="date" type="date" required />
+                  </label>
+                  <label>
+                    Start Time
+                    <input name="startTime" type="time" required />
+                  </label>
+                  <label>
+                    End Time
+                    <input name="endTime" type="time" required />
+                  </label>
+                  <label>
+                    Reason
+                    <input name="reason" type="text" placeholder="Busy / Meeting / Leave" />
+                  </label>
+                </div>
+                <button type="submit" className="st-plain-btn" disabled={isSavingSchedule || !selectedDoctor}>
+                  {isSavingSchedule ? 'Saving...' : 'Block Time'}
+                </button>
+                <ul className="st-appointment-list">
+                  {blockedSlots.map((slot) => (
+                    <li key={slot.id}>
+                      <div>
+                        <strong>{selectedDoctor?.name || 'Doctor'}</strong>
+                        <p>
+                          {slot.date} | {slot.startTime} - {slot.endTime}
+                        </p>
+                        <p>{slot.reason || 'Busy'}</p>
+                      </div>
+                      <div className="st-appointment-actions">
+                        <button type="button" onClick={() => handleRemoveScheduleSlot('blocked', slot.id)}>
+                          Remove
+                        </button>
                       </div>
                     </li>
                   ))}
                 </ul>
-              </article>
+              </form>
 
-              <article className="st-card">
-                <h3>Block Unavailable Time</h3>
-                <div className="st-filters">
-                  <label>
-                    Doctor
-                    <select>
-                      <option>Dr. Sarah Khan</option>
-                      <option>Dr. Michael Reed</option>
-                      <option>Dr. Olivia Grant</option>
-                    </select>
-                  </label>
-                  <label>
-                    Date
-                    <input type="date" />
-                  </label>
-                  <label>
-                    Time Range
-                    <input type="text" placeholder="e.g. 01:00 PM - 02:00 PM" />
-                  </label>
-                </div>
-                <button type="button" className="st-plain-btn">
-                  Block Time
-                </button>
-              </article>
-
-              <article className="st-card">
+              <form className="st-card" onSubmit={handleSaveClinicHours}>
                 <h3>Adjust Clinic Hours</h3>
                 <div className="st-filters">
                   <label>
                     Monday - Friday
-                    <input type="text" defaultValue="09:00 AM - 06:00 PM" />
+                    <input
+                      type="text"
+                      value={clinicHours.mondayFriday}
+                      onChange={(event) => setClinicHours((current) => ({ ...current, mondayFriday: event.target.value }))}
+                    />
                   </label>
                   <label>
                     Saturday
-                    <input type="text" defaultValue="10:00 AM - 03:00 PM" />
+                    <input
+                      type="text"
+                      value={clinicHours.saturday}
+                      onChange={(event) => setClinicHours((current) => ({ ...current, saturday: event.target.value }))}
+                    />
                   </label>
                   <label>
                     Sunday
-                    <input type="text" defaultValue="Closed" />
+                    <input
+                      type="text"
+                      value={clinicHours.sunday}
+                      onChange={(event) => setClinicHours((current) => ({ ...current, sunday: event.target.value }))}
+                    />
                   </label>
                 </div>
-                <button type="button" className="st-plain-btn">
-                  Save Clinic Hours
+                <button type="submit" className="st-plain-btn" disabled={isSavingSchedule || !selectedDoctor}>
+                  {isSavingSchedule ? 'Saving...' : 'Save Clinic Hours'}
                 </button>
-              </article>
+              </form>
 
-              <article className="st-card">
+              <form className="st-card" onSubmit={handleAssignEmergencySlot}>
                 <h3>Assign Emergency Slots</h3>
                 <div className="st-filters">
                   <label>
-                    Doctor
-                    <select>
-                      <option>Dr. Sarah Khan</option>
-                      <option>Dr. Michael Reed</option>
-                      <option>Dr. Olivia Grant</option>
-                    </select>
-                  </label>
-                  <label>
                     Date
-                    <input type="date" />
+                    <input name="date" type="date" required />
                   </label>
                   <label>
-                    Slot Time
-                    <input type="text" placeholder="e.g. 05:30 PM - 06:00 PM" />
+                    Start Time
+                    <input name="startTime" type="time" required />
+                  </label>
+                  <label>
+                    End Time
+                    <input name="endTime" type="time" required />
                   </label>
                 </div>
-                <button type="button" className="st-plain-btn">
-                  Assign Emergency Slot
+                <button type="submit" className="st-plain-btn" disabled={isSavingSchedule || !selectedDoctor}>
+                  {isSavingSchedule ? 'Saving...' : 'Assign Emergency Slot'}
                 </button>
                 <ul className="st-appointment-list">
-                  {EMERGENCY_SLOTS.map((slot) => (
-                    <li key={slot}>
+                  {emergencySlots.length ? (
+                    emergencySlots.map((slot) => (
+                    <li key={slot.id}>
                       <div>
-                        <strong>{slot}</strong>
+                        <strong>
+                          {slot.date} | {slot.startTime} - {slot.endTime}
+                        </strong>
+                      </div>
+                      <div className="st-appointment-actions">
+                        <button type="button" onClick={() => handleRemoveScheduleSlot('available', slot.id)}>
+                          Remove
+                        </button>
                       </div>
                     </li>
-                  ))}
+                    ))
+                  ) : (
+                    <li>
+                      <div>
+                        <strong>No emergency slots assigned.</strong>
+                      </div>
+                    </li>
+                  )}
                 </ul>
-              </article>
+              </form>
             </div>
           ) : activePage === 'Profile' ? (
             <div className="st-profile-layout">
               <article className="st-card st-profile-summary">
                 <div className="st-profile-avatar" aria-hidden="true">
-                  {profile?.name?.slice(0, 2).toUpperCase() || 'ST'}
+                  {profile?.profilePhoto ? <img src={profile.profilePhoto} alt="Profile" /> : profile?.name?.slice(0, 2).toUpperCase() || 'ST'}
                 </div>
                 <div className="st-profile-meta">
                   <h3>{profile?.name || 'Staff User'}</h3>
@@ -1192,6 +1869,10 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                   <label>
                     Phone Number
                     <input name="phone" type="tel" defaultValue={profile?.phone || ''} />
+                  </label>
+                  <label>
+                    Profile Photo
+                    <input name="profilePhoto" type="file" accept="image/*" />
                   </label>
                   <label>
                     Email Address
@@ -1224,42 +1905,80 @@ export default function StaffDashboard({ currentUser, onLogout }) {
               <article className="st-card">
                 <h3>Notification Preferences</h3>
                 <p>Choose which updates you want to receive.</p>
-                <div className="st-toggle-list">
+                <form className="st-toggle-list" onSubmit={handleStaffNotificationSubmit}>
                   <label>
-                    <input type="checkbox" defaultChecked />
+                    <input
+                      name="appointmentRequestAlerts"
+                      type="checkbox"
+                      defaultChecked={Boolean(profile?.notificationPreferences?.appointmentRequestAlerts)}
+                    />
                     Appointment request alerts
                   </label>
                   <label>
-                    <input type="checkbox" defaultChecked />
+                    <input
+                      name="paymentConfirmationAlerts"
+                      type="checkbox"
+                      defaultChecked={Boolean(profile?.notificationPreferences?.paymentConfirmationAlerts)}
+                    />
                     Payment confirmation alerts
                   </label>
                   <label>
-                    <input type="checkbox" defaultChecked />
+                    <input
+                      name="doctorScheduleChanges"
+                      type="checkbox"
+                      defaultChecked={Boolean(profile?.notificationPreferences?.doctorScheduleChanges)}
+                    />
                     Doctor schedule changes
                   </label>
                   <label>
-                    <input type="checkbox" />
+                    <input
+                      name="weeklyPerformanceSummary"
+                      type="checkbox"
+                      defaultChecked={Boolean(profile?.notificationPreferences?.weeklyPerformanceSummary)}
+                    />
                     Weekly performance summary
                   </label>
-                </div>
+                  <button type="submit" className="st-plain-btn" disabled={isSavingStaffNotifications}>
+                    {isSavingStaffNotifications ? 'Saving...' : 'Save Notification Preferences'}
+                  </button>
+                </form>
+                {staffNotificationStatus ? <p className="st-form-success">{staffNotificationStatus}</p> : null}
+                {staffNotificationError ? <p className="st-form-error">{staffNotificationError}</p> : null}
               </article>
 
               <article className="st-card">
                 <h3>Security & Account</h3>
-                <div className="st-profile-actions">
-                  <button type="button">Change Password</button>
-                  <button type="button">Enable Two-Factor Authentication</button>
-                  <button type="button">View Login Activity</button>
+                <form className="st-profile-form" onSubmit={handleStaffPasswordSubmit}>
+                  <label>
+                    Current Password
+                    <input name="currentPassword" type="password" required />
+                  </label>
+                  <label>
+                    New Password
+                    <input name="newPassword" type="password" minLength={8} required />
+                  </label>
+                  <button type="submit" className="st-plain-btn" disabled={isChangingStaffPassword}>
+                    {isChangingStaffPassword ? 'Updating...' : 'Change Password'}
+                  </button>
+                </form>
+                {staffPasswordStatus ? <p className="st-form-success">{staffPasswordStatus}</p> : null}
+                {staffPasswordError ? <p className="st-form-error">{staffPasswordError}</p> : null}
+                <div className="st-toggle-list">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(profile?.twoFactorEnabled)}
+                      onChange={(event) => handleStaffTwoFactorToggle(event.target.checked)}
+                    />
+                    Enable Two-Factor Authentication
+                  </label>
                 </div>
-                <button type="button" className="st-danger-btn">
-                  Deactivate Account
-                </button>
               </article>
             </div>
           ) : activePage === 'Billing & Payments' ? (
             <div className="st-billing-layout">
               <article className="st-card st-billing-summary">
-                {BILLING_SUMMARY.map((item) => (
+                {billingSummary.map((item) => (
                   <div key={item.title} className="st-billing-metric">
                     <p>{item.title}</p>
                     <strong>{item.value}</strong>
@@ -1267,60 +1986,95 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                 ))}
               </article>
 
-              <article className="st-card">
+              <form className="st-card" onSubmit={handleGenerateInvoice}>
                 <h3>Generate Invoice</h3>
                 <div className="st-profile-form">
                   <label>
                     Invoice ID
-                    <input type="text" defaultValue="INV-3010" />
+                    <input name="invoiceId" type="text" placeholder="Leave empty to auto-generate" />
                   </label>
                   <label>
                     Appointment ID
-                    <input type="text" placeholder="Enter appointment ID" />
+                    <input name="appointmentId" type="text" placeholder="Enter appointment ID" />
                   </label>
                   <label>
                     Pet Owner Name
-                    <input type="text" placeholder="Enter owner name" />
+                    <input name="ownerName" type="text" placeholder="Enter owner name" required />
                   </label>
                   <label>
                     Pet Name
-                    <input type="text" placeholder="Enter pet name" />
+                    <input name="petName" type="text" placeholder="Enter pet name" required />
+                  </label>
+                  <label>
+                    Doctor
+                    <select name="doctorName" defaultValue="" required>
+                      <option value="" disabled>
+                        Select doctor
+                      </option>
+                      {doctors.map((doctor) => (
+                        <option key={doctor.id} value={doctor.name}>
+                          {doctor.name}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                 </div>
-              </article>
+                <button type="submit" className="st-plain-btn" disabled={isSavingBilling}>
+                  {isSavingBilling ? 'Saving...' : 'Generate Invoice'}
+                </button>
+              </form>
 
-              <article className="st-card">
+              <form className="st-card" onSubmit={handleSaveCharges} key={`charges-${selectedBillingId || 'none'}`}>
                 <h3>Charges</h3>
+                <div className="st-filters">
+                  <label>
+                    Select Invoice
+                    <select value={selectedBillingId} onChange={(event) => setSelectedBillingId(event.target.value)}>
+                      {billingRecords.length ? (
+                        billingRecords.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.invoiceId} | {item.ownerName} | {item.petName}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="">No invoices</option>
+                      )}
+                    </select>
+                  </label>
+                </div>
                 <div className="st-charge-grid">
                   <label>
                     Consultation Fee
-                    <input type="number" placeholder="0.00" />
+                    <input name="consultationFee" type="number" step="0.01" min="0" defaultValue={selectedBillingRecord?.consultationFee || 0} />
                   </label>
                   <label>
                     Service Charges
-                    <input type="number" placeholder="0.00" />
+                    <input name="serviceCharges" type="number" step="0.01" min="0" defaultValue={selectedBillingRecord?.serviceCharges || 0} />
                   </label>
                   <label>
                     Medicine Charges
-                    <input type="number" placeholder="0.00" />
+                    <input name="medicineCharges" type="number" step="0.01" min="0" defaultValue={selectedBillingRecord?.medicineCharges || 0} />
                   </label>
                   <label>
                     Lab Charges
-                    <input type="number" placeholder="0.00" />
+                    <input name="labCharges" type="number" step="0.01" min="0" defaultValue={selectedBillingRecord?.labCharges || 0} />
                   </label>
                 </div>
                 <div className="st-billing-total">
                   <span>Total Amount</span>
-                  <strong>$0.00</strong>
+                  <strong>{selectedBillingRecord?.totalAmountDisplay || '฿0.00'}</strong>
                 </div>
-              </article>
+                <button type="submit" className="st-plain-btn" disabled={isSavingBilling || !selectedBillingRecord}>
+                  {isSavingBilling ? 'Saving...' : 'Save Charges'}
+                </button>
+              </form>
 
-              <article className="st-card">
+              <form className="st-card" onSubmit={handleRecordPayment} key={`payment-${selectedBillingId || 'none'}`}>
                 <h3>Record Payment</h3>
                 <div className="st-profile-form">
                   <label>
                     Payment Method
-                    <select>
+                    <select name="paymentMethod" defaultValue={selectedBillingRecord?.paymentMethod || 'Card'}>
                       <option>Card</option>
                       <option>Cash</option>
                       <option>UPI</option>
@@ -1329,15 +2083,15 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                   </label>
                   <label>
                     Payment Date
-                    <input type="date" />
+                    <input name="paymentDate" type="date" defaultValue={selectedBillingRecord?.paymentDate || ''} />
                   </label>
                   <label>
                     Reference Number
-                    <input type="text" placeholder="Optional reference ID" />
+                    <input name="referenceNumber" type="text" placeholder="Optional reference ID" defaultValue={selectedBillingRecord?.referenceNumber || ''} />
                   </label>
                   <label>
                     Payment Status
-                    <select>
+                    <select name="paymentStatus" defaultValue={selectedBillingRecord?.paymentStatus || 'Paid'}>
                       <option>Paid</option>
                       <option>Pending</option>
                       <option>Failed</option>
@@ -1345,29 +2099,51 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                   </label>
                 </div>
                 <div className="st-billing-actions">
-                  <button type="button">Generate Invoice</button>
-                  <button type="button">Record Payment</button>
-                  <button type="button">Print Receipt</button>
+                  <button type="submit" disabled={isSavingBilling || !selectedBillingRecord}>
+                    {isSavingBilling ? 'Saving...' : 'Record Payment'}
+                  </button>
+                  <button type="button" onClick={handlePrintReceipt} disabled={!selectedBillingRecord}>
+                    Print Receipt
+                  </button>
                 </div>
-              </article>
+                {billingStatusMessage ? <p className="st-form-success">{billingStatusMessage}</p> : null}
+                {billingError ? <p className="st-form-error">{billingError}</p> : null}
+              </form>
 
               <article className="st-card st-history-card">
                 <h3>Payment History</h3>
                 <ul className="st-history-list">
-                  {PAYMENT_HISTORY.map((item) => (
-                    <li key={item.invoice}>
+                  {isLoadingBilling ? (
+                    <li>
                       <div>
-                        <strong>{item.invoice}</strong>
-                        <p>
-                          {item.owner} | {item.pet}
-                        </p>
+                        <strong>Loading payment history...</strong>
                       </div>
-                      <span>{item.amount}</span>
-                      <span>{item.method}</span>
-                      <span className={`st-history-status st-history-${item.status.toLowerCase()}`}>{item.status}</span>
-                      <button type="button">View</button>
                     </li>
-                  ))}
+                  ) : billingRecords.length ? (
+                    billingRecords.map((item) => (
+                    <li key={item.id}>
+                      <div>
+                        <strong>{item.invoiceId}</strong>
+                        <p>
+                          {item.ownerName} | {item.petName}
+                        </p>
+                        <p>Doctor: {item.doctorName || '-'}</p>
+                      </div>
+                      <span>{item.totalAmountDisplay || formatBaht(item.totalAmount)}</span>
+                      <span>{item.paymentMethod || '-'}</span>
+                      <span className={`st-history-status st-history-${item.paymentStatus.toLowerCase()}`}>{item.paymentStatus}</span>
+                      <button type="button" onClick={() => handleViewReceipt(item.id)}>
+                        View
+                      </button>
+                    </li>
+                    ))
+                  ) : (
+                    <li>
+                      <div>
+                        <strong>No billing records found.</strong>
+                      </div>
+                    </li>
+                  )}
                 </ul>
               </article>
             </div>
@@ -1378,40 +2154,65 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                 <div className="st-filters">
                   <label>
                     Date Range
-                    <select>
-                      <option>This Week</option>
-                      <option>This Month</option>
-                      <option>Last Month</option>
-                      <option>Custom Range</option>
+                    <select value={reportRange} onChange={(event) => setReportRange(event.target.value)}>
+                      <option value="this-week">This Week</option>
+                      <option value="this-month">This Month</option>
+                      <option value="last-month">Last Month</option>
+                      <option value="custom">Custom Range</option>
                     </select>
                   </label>
+                  {reportRange === 'custom' ? (
+                    <>
+                      <label>
+                        From
+                        <input type="date" value={reportFromDate} onChange={(event) => setReportFromDate(event.target.value)} />
+                      </label>
+                      <label>
+                        To
+                        <input type="date" value={reportToDate} onChange={(event) => setReportToDate(event.target.value)} />
+                      </label>
+                    </>
+                  ) : null}
                   <label>
                     Doctor
-                    <select>
-                      <option>All Doctors</option>
-                      <option>Dr. Sarah Khan</option>
-                      <option>Dr. Michael Reed</option>
-                      <option>Dr. Olivia Grant</option>
+                    <select value={reportDoctor} onChange={(event) => setReportDoctor(event.target.value)}>
+                      <option value="All">All Doctors</option>
+                      {doctors.map((doctor) => (
+                        <option key={doctor.id} value={doctor.name}>
+                          {doctor.name}
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <label>
                     Report Type
-                    <select>
-                      <option>Financial + Operational</option>
-                      <option>Financial Only</option>
-                      <option>Appointments Only</option>
+                    <select value={reportType} onChange={(event) => setReportType(event.target.value)}>
+                      <option value="Financial + Operational">Financial + Operational</option>
+                      <option value="Financial Only">Financial Only</option>
+                      <option value="Appointments Only">Appointments Only</option>
                     </select>
                   </label>
                 </div>
                 <div className="st-billing-actions">
-                  <button type="button">Apply Filters</button>
-                  <button type="button">Export CSV</button>
-                  <button type="button">Export PDF</button>
+                  <button type="button" onClick={handleApplyReportFilters} disabled={isLoadingReports}>
+                    {isLoadingReports ? 'Loading...' : 'Apply Filters'}
+                  </button>
+                  <button type="button" onClick={handleExportReportCsv}>
+                    Export CSV
+                  </button>
+                  <button type="button" onClick={handleExportReportPdf}>
+                    Export PDF
+                  </button>
+                  <button type="button" onClick={handleSaveReportSnapshot}>
+                    Save Snapshot
+                  </button>
                 </div>
+                {reportStatusMessage ? <p className="st-form-success">{reportStatusMessage}</p> : null}
+                {reportError ? <p className="st-form-error">{reportError}</p> : null}
               </article>
 
               <article className="st-card st-reports-kpis">
-                {STAFF_REPORT_METRICS.map((item) => (
+                {reportMetrics.map((item) => (
                   <div key={item.title} className="st-report-kpi">
                     <p>{item.title}</p>
                     <strong>{item.value}</strong>
@@ -1423,7 +2224,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
               <article className="st-card">
                 <h3>Income & Appointment Trend</h3>
                 <ul className="st-report-trend-list">
-                  {REPORT_TREND_ROWS.map((row) => (
+                  {reportTrendRows.map((row) => (
                     <li key={row.period}>
                       <span>{row.period}</span>
                       <strong>{row.income}</strong>
@@ -1437,24 +2238,30 @@ export default function StaffDashboard({ currentUser, onLogout }) {
               <article className="st-card">
                 <h3>Top Insights</h3>
                 <ul className="st-dashboard-list">
-                  <li>
-                    <div>
-                      <strong>Most Visited Doctor</strong>
-                      <p>Dr. Sarah Khan handled 34% of visits this month.</p>
-                    </div>
-                  </li>
-                  <li>
-                    <div>
-                      <strong>Most Common Pet Illness</strong>
-                      <p>Skin Allergy is the highest reported diagnosis this month.</p>
-                    </div>
-                  </li>
-                  <li>
-                    <div>
-                      <strong>Monthly Volume</strong>
-                      <p>512 appointments logged with 8.7% growth vs last month.</p>
-                    </div>
-                  </li>
+                  {reportInsights.map((item) => (
+                    <li key={item.title}>
+                      <div>
+                        <strong>{item.title}</strong>
+                        <p>{item.text}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+
+              <article className="st-card">
+                <h3>Saved Snapshots</h3>
+                <ul className="st-report-trend-list">
+                  {reportSnapshots.map((snapshot) => (
+                    <li key={snapshot.id}>
+                      <strong>
+                        {snapshot.fromDate} to {snapshot.toDate}
+                      </strong>
+                      <span>
+                        {snapshot.doctorName} | {snapshot.reportType}
+                      </span>
+                    </li>
+                  ))}
                 </ul>
               </article>
             </div>

@@ -101,6 +101,13 @@ export function updateUserProfile(userId, body) {
   })
 }
 
+export function changeUserPassword(userId, body) {
+  return request(`/api/users/${userId}/change-password`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
 export function listUsers(query) {
   return request(withQuery('/api/users', query))
 }
@@ -118,6 +125,92 @@ export function listPrescriptions(query) {
 
 export function createPrescription(body) {
   return request('/api/prescriptions', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export function getDoctorSchedule(doctorId, query) {
+  return request(withQuery(`/api/doctor-schedule/${doctorId}`, query))
+}
+
+export function addDoctorAvailableSlot(doctorId, body) {
+  return request(`/api/doctor-schedule/${doctorId}/available-slots`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export function addDoctorBlockedSlot(doctorId, body) {
+  return request(`/api/doctor-schedule/${doctorId}/blocked-slots`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export function updateDoctorClinicHours(doctorId, body) {
+  return request(`/api/doctor-schedule/${doctorId}/clinic-hours`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export function deleteDoctorScheduleSlot(doctorId, slotType, slotId) {
+  return request(`/api/doctor-schedule/${doctorId}/${slotType}/${slotId}`, {
+    method: 'DELETE',
+  })
+}
+
+export function listBillingRecords(query) {
+  return request(withQuery('/api/billing', query))
+}
+
+export function createBillingRecord(body) {
+  return request('/api/billing', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export function updateBillingChargesById(billingId, body) {
+  return request(`/api/billing/${billingId}/charges`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export function recordBillingPaymentById(billingId, body) {
+  return request(`/api/billing/${billingId}/payment`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export function getBillingReceiptById(billingId) {
+  return request(`/api/billing/${billingId}/receipt`)
+}
+
+export function getReportsAnalytics(query) {
+  return request(withQuery('/api/reports/analytics', query))
+}
+
+export function listReportSnapshots() {
+  return request('/api/reports/snapshots')
+}
+
+export function createReportSnapshot(body) {
+  return request('/api/reports/snapshots', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export function listMedicalRecords(query) {
+  return request(withQuery('/api/medical-records', query))
+}
+
+export function createMedicalRecord(body) {
+  return request('/api/medical-records', {
     method: 'POST',
     body: JSON.stringify(body),
   })
