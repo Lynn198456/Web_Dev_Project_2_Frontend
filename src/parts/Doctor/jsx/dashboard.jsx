@@ -18,6 +18,7 @@ import {
   updateAppointmentById,
   updateUserProfile,
 } from '../../../lib/api'
+import { formatAppointmentReference } from '../../../lib/appointmentRef'
 
 const DOCTOR_PAGES = [
   'Doctor Dashboard',
@@ -92,12 +93,12 @@ const PAGE_CONTENT = {
   },
   'Doctor Schedule Page': {
     title: 'Doctor Schedule Page',
-    subtitle: 'Manage working hours and available consultation slots.',
+    subtitle: 'Manage working hours and blocked consultation slots.',
     cards: [
       { title: 'Weekly Schedule', detail: 'Set clinic days and timings', action: 'Edit schedule' },
-      { title: 'Slot Availability', detail: 'Adjust available slots', action: 'Manage slots' },
       { title: 'Leave Blocks', detail: 'Mark unavailable dates', action: 'Set leave' },
-      { title: 'Calendar Sync', detail: 'Keep schedule up to date', action: 'Sync calendar' },
+      { title: 'Clinic Hours', detail: 'Update daily working hours', action: 'Adjust hours' },
+      { title: 'Emergency Slots', detail: 'Assign emergency availability', action: 'Manage slots' },
     ],
   },
   Profile: {
@@ -847,7 +848,9 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                 {filteredAppointments.map((item) => (
                   <li key={item.id}>
                     <div>
-                      <strong>{item.date}</strong>
+                      <strong>{formatAppointmentReference(item.id)}</strong>
+                      <p className="dr-appointment-id">{item.id}</p>
+                      <p>{item.date}</p>
                       <p>
                         {item.pet} - {item.owner}
                       </p>
@@ -874,14 +877,17 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                       >
                         {consultationAppointments.map((item) => (
                           <option key={item.id} value={item.id}>
-                            {item.date} {item.time ? `- ${item.time}` : ''} | {item.pet} | {item.owner}
+                            {formatAppointmentReference(item.id)} | {item.date} {item.time ? `- ${item.time}` : ''} | {item.pet} | {item.owner}
                           </option>
                         ))}
                       </select>
                     </label>
                     <div className="dr-info-grid">
                       <p>
-                        <strong>Appointment ID:</strong> {selectedConsultation.id}
+                        <strong>Appointment:</strong> {formatAppointmentReference(selectedConsultation.id)}
+                      </p>
+                      <p className="dr-appointment-id">
+                        <strong>Full ID:</strong> {selectedConsultation.id}
                       </p>
                       <p>
                         <strong>Date:</strong> {formatConsultDate(selectedConsultation.date)}

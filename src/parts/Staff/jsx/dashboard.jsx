@@ -27,14 +27,13 @@ import {
   updatePetById,
   updateUserProfile,
 } from '../../../lib/api'
+import { formatAppointmentReference } from '../../../lib/appointmentRef'
 
 const STAFF_PAGES = [
   'Dashboard',
   'Appointment Management',
   'Pet Owner Management',
   'Pet Records',
-  'Doctor Schedule Management',
-  'Reports & Analytics',
   'Billing & Payments',
   'Profile',
 ]
@@ -71,24 +70,6 @@ const STAFF_CONTENT = {
       { title: 'Medical Snapshot', text: 'Quick view of recent diagnosis and vaccine status.' },
     ],
   },
-  'Doctor Schedule Management': {
-    subtitle: 'Manage doctor shifts, leave blocks, and availability.',
-    cards: [
-      { title: 'Shift Planner', text: 'Assign doctors to clinic shift slots.' },
-      { title: 'Leave Requests', text: 'Review and approve leave submissions.' },
-      { title: 'Availability Calendar', text: 'Monitor available and blocked consultation hours.' },
-      { title: 'Coverage Alerts', text: 'Identify overlapping or uncovered shifts.' },
-    ],
-  },
-  'Reports & Analytics': {
-    subtitle: 'Track operational metrics and clinic performance reports.',
-    cards: [
-      { title: 'Daily Summary', text: 'Appointments, walk-ins, and completed visits.' },
-      { title: 'Revenue Trends', text: 'Daily and weekly billing and collection insights.' },
-      { title: 'Doctor Performance', text: 'Consultation load and completion metrics.' },
-      { title: 'Export Reports', text: 'Download analytics in CSV/PDF format.' },
-    ],
-  },
   'Billing & Payments': {
     subtitle: 'Handle invoices, payments, and billing history.',
     cards: [
@@ -109,19 +90,11 @@ const STAFF_CONTENT = {
   },
 }
 
-const STAFF_DASHBOARD_METRICS = [
-  { title: 'Today’s Total Appointments', value: '18', note: 'Scheduled today' },
-  { title: 'Pending Appointment Requests', value: '6', note: 'Awaiting confirmation' },
-  { title: 'Total Doctors Available', value: '9', note: 'On active shift' },
-  { title: 'Walk-in Patients', value: '5', note: 'Checked in today' },
-  { title: 'Payment Summary (Today)', value: '฿2,450', note: 'Collected payments' },
-]
-
 const STAFF_QUICK_ACTIONS = [
-  { title: 'Add Appointment', text: 'Create a new scheduled appointment.' },
-  { title: 'Register Pet Owner', text: 'Add a new owner account with contact details.' },
-  { title: 'Add Walk-in', text: 'Register walk-in patient quickly at front desk.' },
-  { title: 'Generate Invoice', text: 'Create bill and move to payment flow.' },
+  { title: 'Add Appointment', text: 'Create a new scheduled appointment.', targetPage: 'Appointment Management' },
+  { title: 'Register Pet Owner', text: 'Add a new owner account with contact details.', targetPage: 'Pet Owner Management' },
+  { title: 'Add Walk-in', text: 'Register walk-in patient quickly at front desk.', targetPage: 'Appointment Management' },
+  { title: 'Generate Invoice', text: 'Create bill and move to payment flow.', targetPage: 'Billing & Payments' },
 ]
 
 function isPetOwnerRole(role) {
@@ -141,6 +114,52 @@ function formatBaht(value) {
     return '฿0.00'
   }
   return `฿${numeric.toFixed(2)}`
+}
+
+function normalizeIsoDate(value) {
+  const raw = String(value || '').trim()
+  if (!raw) {
+    return ''
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return raw
+  }
+  const parsed = new Date(raw)
+  if (Number.isNaN(parsed.getTime())) {
+    return ''
+  }
+  return parsed.toISOString().slice(0, 10)
+}
+
+function getLocalIsoDate(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function parseTimeToMinutes(value) {
+  const text = String(value || '').trim()
+  if (!text) {
+    return Number.NaN
+  }
+  const direct = /^(\d{1,2}):(\d{2})$/.exec(text)
+  if (direct) {
+    const hour = Number(direct[1])
+    const minute = Number(direct[2])
+    return hour * 60 + minute
+  }
+  const amPm = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(text)
+  if (amPm) {
+    let hour = Number(amPm[1]) % 12
+    const minute = Number(amPm[2])
+    const period = amPm[3].toUpperCase()
+    if (period === 'PM') {
+      hour += 12
+    }
+    return hour * 60 + minute
+  }
+  return Number.NaN
 }
 
 export default function StaffDashboard({ currentUser, onLogout }) {
@@ -163,6 +182,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
   const [petRecordStatusMessage, setPetRecordStatusMessage] = useState('')
   const [petSearch, setPetSearch] = useState('')
   const [doctors, setDoctors] = useState([])
+  const [availableDoctorCount, setAvailableDoctorCount] = useState(0)
   const [selectedDoctorId, setSelectedDoctorId] = useState('')
   const [doctorSchedule, setDoctorSchedule] = useState(null)
   const [isLoadingSchedule, setIsLoadingSchedule] = useState(false)
@@ -202,6 +222,31 @@ export default function StaffDashboard({ currentUser, onLogout }) {
   const [isChangingStaffPassword, setIsChangingStaffPassword] = useState(false)
   const [staffPasswordStatus, setStaffPasswordStatus] = useState('')
   const [staffPasswordError, setStaffPasswordError] = useState('')
+  const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false)
+  const [walkInForm, setWalkInForm] = useState({
+    petName: '',
+    ownerName: '',
+    doctorName: '',
+    appointmentDate: '',
+    appointmentTime: '',
+    reason: 'Walk-in consultation',
+  })
+  const [ownerModalMode, setOwnerModalMode] = useState('')
+  const [activeOwner, setActiveOwner] = useState(null)
+  const [ownerModalPets, setOwnerModalPets] = useState([])
+  const [isLoadingOwnerModalPets, setIsLoadingOwnerModalPets] = useState(false)
+  const [ownerEditForm, setOwnerEditForm] = useState({
+    name: '',
+    phone: '',
+    address: '',
+    preferredContact: 'Email',
+  })
+  const [petHistoryModalPet, setPetHistoryModalPet] = useState(null)
+  const [petEditModalMode, setPetEditModalMode] = useState('')
+  const [petEditModalPet, setPetEditModalPet] = useState(null)
+  const [petEditModalValue, setPetEditModalValue] = useState('')
+  const [assignDoctorModalAppointment, setAssignDoctorModalAppointment] = useState(null)
+  const [assignDoctorModalValue, setAssignDoctorModalValue] = useState('')
   const activeContent = STAFF_CONTENT[activePage] || STAFF_CONTENT.Dashboard
   const todayDashboardDate = new Date().toISOString().slice(0, 10)
   const todayAppointments = appointments.filter((item) => item.appointmentDate === todayDashboardDate)
@@ -212,6 +257,9 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     const statusMatch = filterStatus === 'All' || item.status === filterStatus
     return dateMatch && doctorMatch && statusMatch
   })
+  const doctorFilterOptions = Array.from(new Set(doctors.map((doctor) => String(doctor.name || '').trim())))
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b))
   const filteredOwners = owners.filter((owner) => {
     const query = ownerSearch.trim().toLowerCase()
     if (!query) {
@@ -246,6 +294,21 @@ export default function StaffDashboard({ currentUser, onLogout }) {
   const totalPending = billingRecords
     .filter((item) => item.paymentStatus === 'Pending')
     .reduce((sum, item) => sum + Number(item.totalAmount || 0), 0)
+  const todayCollected = billingRecords
+    .filter((item) => item.paymentStatus === 'Paid' && normalizeIsoDate(item.paymentDate) === todayDashboardDate)
+    .reduce((sum, item) => sum + Number(item.totalAmount || 0), 0)
+  const todayWalkInAppointments = todayAppointments.filter((item) =>
+    String(item.reason || '')
+      .toLowerCase()
+      .includes('walk-in')
+  )
+  const dashboardMetrics = [
+    { title: 'Today’s Total Appointments', value: String(todayAppointments.length), note: 'Scheduled today' },
+    { title: 'Pending Appointment Requests', value: String(pendingDashboardAppointments.length), note: 'Awaiting confirmation' },
+    { title: 'Total Doctors Available', value: String(availableDoctorCount), note: 'Available right now' },
+    { title: 'Walk-in Patients', value: String(todayWalkInAppointments.length), note: 'Checked in today' },
+    { title: 'Payment Summary (Today)', value: formatBaht(todayCollected), note: 'Collected payments' },
+  ]
   const billingSummary = [
     { title: 'Invoices Total', value: String(billingRecords.length) },
     { title: 'Collected', value: formatBaht(totalCollected) },
@@ -428,6 +491,29 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     }
   }, [selectedDoctorId, selectedDoctor?.id, selectedDoctor?.name])
 
+  useEffect(() => {
+    let cancelled = false
+    const refresh = async () => {
+      try {
+        await refreshDoctorAvailabilityCount()
+      } catch (_error) {
+        if (!cancelled) {
+          setAvailableDoctorCount(doctors.length)
+        }
+      }
+    }
+
+    void refresh()
+    const intervalId = window.setInterval(() => {
+      void refresh()
+    }, 60_000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  }, [doctors])
+
   const loadPetRecordsData = async () => {
     const response = await listPets()
     const allPets = Array.isArray(response?.pets) ? response.pets : []
@@ -518,6 +604,56 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     }
     const response = await getDoctorSchedule(doctor.id, doctor.name ? { doctorName: doctor.name } : {})
     return response?.schedule || null
+  }
+
+  const toDateInputValue = (value) => {
+    const date = value instanceof Date ? value : new Date()
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  }
+
+  const toTimeInputValue = (value) => {
+    const date = value instanceof Date ? value : new Date()
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  }
+
+  const refreshDoctorAvailabilityCount = async () => {
+    if (!doctors.length) {
+      setAvailableDoctorCount(0)
+      return
+    }
+
+    const now = new Date()
+    const today = getLocalIsoDate(now)
+    const nowMinutes = now.getHours() * 60 + now.getMinutes()
+
+    const schedules = await Promise.all(
+      doctors.map(async (doctor) => {
+        try {
+          return await loadDoctorScheduleData(doctor)
+        } catch (_error) {
+          return null
+        }
+      })
+    )
+
+    const availableCount = doctors.reduce((count, _doctor, index) => {
+      const blockedSlots = Array.isArray(schedules[index]?.blockedSlots) ? schedules[index].blockedSlots : []
+      const isBlockedNow = blockedSlots.some((slot) => {
+        const slotDate = normalizeIsoDate(slot.date)
+        if (slotDate !== today) {
+          return false
+        }
+        const start = parseTimeToMinutes(slot.startTime)
+        const end = parseTimeToMinutes(slot.endTime)
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+          return false
+        }
+        return nowMinutes >= start && nowMinutes < end
+      })
+      return isBlockedNow ? count : count + 1
+    }, 0)
+
+    setAvailableDoctorCount(availableCount)
   }
 
   useEffect(() => {
@@ -649,53 +785,79 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     })
   }
 
-  const handleAssignDoctor = async (appointment) => {
-    const newDoctor = window.prompt('Enter doctor name:', appointment.doctorName || 'Dr. Sarah Khan')
-    if (!newDoctor) {
-      return
-    }
-    await handleAppointmentUpdate(appointment.id, { doctorName: newDoctor })
+  const openAssignDoctorModal = (appointment) => {
+    setAssignDoctorModalAppointment(appointment)
+    setAssignDoctorModalValue(String(appointment.doctorName || doctors[0]?.name || ''))
   }
 
-  const handleAddWalkIn = async () => {
-    const petName = window.prompt('Pet name:')
-    if (!petName) {
+  const closeAssignDoctorModal = () => {
+    setAssignDoctorModalAppointment(null)
+    setAssignDoctorModalValue('')
+  }
+
+  const handleAssignDoctorSubmit = async (event) => {
+    event.preventDefault()
+    if (!assignDoctorModalAppointment?.id) {
       return
     }
-    const ownerName = window.prompt('Owner name (optional):') || ''
-    const doctorName = window.prompt('Doctor name:', 'Dr. Sarah Khan')
-    if (!doctorName) {
+    const selectedDoctorName = String(assignDoctorModalValue || '').trim()
+    if (!selectedDoctorName) {
+      setAppointmentError('Please select a doctor.')
       return
     }
-    const appointmentDate = window.prompt('Date (YYYY-MM-DD):', new Date().toISOString().slice(0, 10))
-    if (!appointmentDate) {
-      return
+
+    await handleAppointmentUpdate(assignDoctorModalAppointment.id, { doctorName: selectedDoctorName })
+    closeAssignDoctorModal()
+  }
+
+  const openWalkInModal = () => {
+    const now = new Date()
+    setWalkInForm({
+      petName: '',
+      ownerName: '',
+      doctorName: doctors[0]?.name || '',
+      appointmentDate: toDateInputValue(now),
+      appointmentTime: toTimeInputValue(now),
+      reason: 'Walk-in consultation',
+    })
+    setIsWalkInModalOpen(true)
+  }
+
+  const closeWalkInModal = () => {
+    setIsWalkInModalOpen(false)
+  }
+
+  const handleWalkInFieldChange = (event) => {
+    const { name, value } = event.currentTarget
+    setWalkInForm((current) => ({ ...current, [name]: value }))
+  }
+
+  const handleAddWalkIn = async (event) => {
+    event.preventDefault()
+    const payload = {
+      ownerName: String(walkInForm.ownerName || '').trim(),
+      petName: String(walkInForm.petName || '').trim(),
+      doctorName: String(walkInForm.doctorName || '').trim(),
+      appointmentDate: String(walkInForm.appointmentDate || '').trim(),
+      appointmentTime: String(walkInForm.appointmentTime || '').trim(),
+      reason: String(walkInForm.reason || '').trim(),
     }
-    const appointmentTime = window.prompt('Time (HH:MM):', '10:00')
-    if (!appointmentTime) {
-      return
-    }
-    const reason = window.prompt('Reason for visit:', 'Walk-in consultation')
-    if (!reason) {
+
+    if (!payload.petName || !payload.doctorName || !payload.appointmentDate || !payload.appointmentTime || !payload.reason) {
+      setAppointmentError('Pet name, doctor, date, time, and reason are required.')
       return
     }
 
     try {
       setAppointmentError('')
       setAppointmentStatusMessage('')
-      const response = await createAppointment({
-        ownerName,
-        petName,
-        doctorName,
-        appointmentDate,
-        appointmentTime,
-        reason,
-      })
+      const response = await createAppointment(payload)
       const created = response?.appointment
       if (created) {
         setAppointments((currentItems) => [created, ...currentItems])
       }
       setAppointmentStatusMessage('Walk-in appointment added.')
+      closeWalkInModal()
     } catch (requestError) {
       setAppointmentError(requestError.message)
     }
@@ -740,31 +902,68 @@ export default function StaffDashboard({ currentUser, onLogout }) {
   }
 
   const handleEditOwner = async (owner) => {
-    const nextName = window.prompt('Owner name:', owner.name || '')
-    if (nextName === null) {
-      return
+    setOwnerError('')
+    setOwnerModalPets([])
+    setActiveOwner(owner)
+    setOwnerEditForm({
+      name: String(owner.name || ''),
+      phone: String(owner.phone || ''),
+      address: String(owner.address || ''),
+      preferredContact: String(owner.preferredContact || 'Email'),
+    })
+    setOwnerModalMode('edit')
+  }
+
+  const handleViewOwnerProfile = (owner) => {
+    setOwnerError('')
+    setOwnerModalPets([])
+    setActiveOwner(owner)
+    setOwnerModalMode('profile')
+  }
+
+  const handleViewOwnerPets = async (owner) => {
+    setOwnerError('')
+    setOwnerModalPets([])
+    setActiveOwner(owner)
+    setOwnerModalMode('pets')
+    setIsLoadingOwnerModalPets(true)
+    try {
+      const response = await listPets({ userId: owner.id })
+      const ownerPets = Array.isArray(response?.pets) ? response.pets : []
+      setOwnerModalPets(ownerPets)
+    } catch (requestError) {
+      setOwnerError(requestError.message)
+    } finally {
+      setIsLoadingOwnerModalPets(false)
     }
-    const nextPhone = window.prompt('Phone number:', owner.phone || '')
-    if (nextPhone === null) {
-      return
-    }
-    const nextAddress = window.prompt('Address:', owner.address || '')
-    if (nextAddress === null) {
-      return
-    }
-    const nextPreferred = window.prompt('Preferred contact (Email / Phone / SMS):', owner.preferredContact || 'Email')
-    if (nextPreferred === null) {
+  }
+
+  const closeOwnerModal = () => {
+    setOwnerModalMode('')
+    setActiveOwner(null)
+    setOwnerModalPets([])
+    setIsLoadingOwnerModalPets(false)
+  }
+
+  const handleOwnerEditFieldChange = (event) => {
+    const { name, value } = event.currentTarget
+    setOwnerEditForm((current) => ({ ...current, [name]: value }))
+  }
+
+  const handleOwnerEditSubmit = async (event) => {
+    event.preventDefault()
+    if (!activeOwner?.id) {
       return
     }
 
     try {
       setOwnerError('')
       setOwnerStatusMessage('')
-      const response = await updateUserProfile(owner.id, {
-        name: String(nextName).trim(),
-        phone: String(nextPhone).trim(),
-        address: String(nextAddress).trim(),
-        preferredContact: String(nextPreferred).trim() || 'Email',
+      const response = await updateUserProfile(activeOwner.id, {
+        name: String(ownerEditForm.name || '').trim(),
+        phone: String(ownerEditForm.phone || '').trim(),
+        address: String(ownerEditForm.address || '').trim(),
+        preferredContact: String(ownerEditForm.preferredContact || 'Email').trim() || 'Email',
       })
       const updated = response?.user
       if (updated) {
@@ -783,28 +982,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
         )
       }
       setOwnerStatusMessage('Owner details updated.')
-    } catch (requestError) {
-      setOwnerError(requestError.message)
-    }
-  }
-
-  const handleViewOwnerProfile = (owner) => {
-    window.alert(
-      `Owner: ${owner.name}\nEmail: ${owner.email}\nPhone: ${owner.phone || '-'}\nPreferred Contact: ${owner.preferredContact || '-'}\nAddress: ${owner.address || '-'}`
-    )
-  }
-
-  const handleViewOwnerPets = async (owner) => {
-    try {
-      setOwnerError('')
-      const response = await listPets({ userId: owner.id })
-      const ownerPets = Array.isArray(response?.pets) ? response.pets : []
-      if (!ownerPets.length) {
-        window.alert(`${owner.name} has no pets registered.`)
-        return
-      }
-      const lines = ownerPets.map((pet) => `- ${pet.name} (${pet.breed || 'Unknown breed'})`)
-      window.alert(`${owner.name}'s pets:\n${lines.join('\n')}`)
+      closeOwnerModal()
     } catch (requestError) {
       setOwnerError(requestError.message)
     }
@@ -844,42 +1022,47 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     }
   }
 
-  const handleUpdatePetWeight = async (pet) => {
-    const newWeight = window.prompt('Enter new weight:', pet.weight || '')
-    if (newWeight === null) {
-      return
-    }
-    try {
-      setPetRecordError('')
-      setPetRecordStatusMessage('')
-      const response = await updatePetById(pet.id, { weight: String(newWeight).trim() })
-      const updated = response?.pet
-      if (updated) {
-        setPets((current) => current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)))
-      }
-      setPetRecordStatusMessage('Pet weight updated.')
-    } catch (requestError) {
-      setPetRecordError(requestError.message)
-    }
+  const openPetWeightModal = (pet) => {
+    setPetEditModalPet(pet)
+    setPetEditModalMode('weight')
+    setPetEditModalValue(String(pet.weight || ''))
   }
 
-  const handleUpdateVaccinationStatus = async (pet) => {
-    const newVaccination = window.prompt(
-      'Enter vaccination date/status (e.g. 2026-03-22 or Up to date):',
-      pet.vaccinationStatus || ''
-    )
-    if (newVaccination === null) {
+  const openPetVaccinationModal = (pet) => {
+    setPetEditModalPet(pet)
+    setPetEditModalMode('vaccination')
+    setPetEditModalValue(String(pet.vaccinationStatus || ''))
+  }
+
+  const closePetEditModal = () => {
+    setPetEditModalMode('')
+    setPetEditModalPet(null)
+    setPetEditModalValue('')
+  }
+
+  const handlePetEditSubmit = async (event) => {
+    event.preventDefault()
+    if (!petEditModalPet?.id || !petEditModalMode) {
       return
     }
+    const cleanedValue = String(petEditModalValue || '').trim()
+    if (!cleanedValue) {
+      setPetRecordError(petEditModalMode === 'weight' ? 'Weight is required.' : 'Vaccination date/status is required.')
+      return
+    }
+
+    const payload = petEditModalMode === 'weight' ? { weight: cleanedValue } : { vaccinationStatus: cleanedValue }
+
     try {
       setPetRecordError('')
       setPetRecordStatusMessage('')
-      const response = await updatePetById(pet.id, { vaccinationStatus: String(newVaccination).trim() })
+      const response = await updatePetById(petEditModalPet.id, payload)
       const updated = response?.pet
       if (updated) {
         setPets((current) => current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)))
       }
-      setPetRecordStatusMessage('Vaccination status updated.')
+      setPetRecordStatusMessage(petEditModalMode === 'weight' ? 'Pet weight updated.' : 'Vaccination status updated.')
+      closePetEditModal()
     } catch (requestError) {
       setPetRecordError(requestError.message)
     }
@@ -902,11 +1085,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
   }
 
   const handleViewPetHistory = (pet) => {
-    window.alert(
-      `Pet: ${pet.name}\nOwner: ${pet.ownerName || '-'}\nBreed: ${pet.breed}\nAge: ${pet.age}\nWeight: ${pet.weight}\nVaccination: ${
-        pet.vaccinationStatus || '-'
-      }\n\nHistory is read-only for staff.`
-    )
+    setPetHistoryModalPet(pet)
   }
 
   const handleUploadPetDocument = (pet) => {
@@ -984,20 +1163,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     }
   }
 
-  const refreshSelectedDoctorSchedule = async () => {
-    if (!selectedDoctor) {
-      setDoctorSchedule(null)
-      return
-    }
-    const schedule = await loadDoctorScheduleData(selectedDoctor)
-    setDoctorSchedule(schedule)
-    setClinicHours({
-      mondayFriday: schedule?.clinicHours?.mondayFriday || '09:00 AM - 05:00 PM',
-      saturday: schedule?.clinicHours?.saturday || '10:00 AM - 02:00 PM',
-      sunday: schedule?.clinicHours?.sunday || 'Closed',
-    })
-  }
-
   const handleBlockUnavailableTime = async (event) => {
     event.preventDefault()
     if (!selectedDoctor) {
@@ -1019,6 +1184,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
       const response = await addDoctorBlockedSlot(selectedDoctor.id, body)
       const schedule = response?.schedule || null
       setDoctorSchedule(schedule)
+      await refreshDoctorAvailabilityCount()
       setScheduleStatusMessage('Unavailable time blocked.')
       event.currentTarget.reset()
     } catch (requestError) {
@@ -1074,6 +1240,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
         sunday: clinicHours.sunday,
       })
       setDoctorSchedule(response?.schedule || null)
+      await refreshDoctorAvailabilityCount()
       setScheduleStatusMessage('Clinic hours updated.')
     } catch (requestError) {
       setScheduleError(requestError.message)
@@ -1092,6 +1259,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
       setScheduleStatusMessage('')
       const response = await deleteDoctorScheduleSlot(selectedDoctor.id, slotType, slotId)
       setDoctorSchedule(response?.schedule || null)
+      await refreshDoctorAvailabilityCount()
       setScheduleStatusMessage('Slot removed.')
     } catch (requestError) {
       setScheduleError(requestError.message)
@@ -1141,7 +1309,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
       consultationFee: Number(formData.get('consultationFee') || 0),
       serviceCharges: Number(formData.get('serviceCharges') || 0),
       medicineCharges: Number(formData.get('medicineCharges') || 0),
-      labCharges: Number(formData.get('labCharges') || 0),
+      labCharges: 0,
     }
 
     try {
@@ -1192,25 +1360,137 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     }
   }
 
+  const escapeHtml = (value) =>
+    String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+
+  const buildReceiptHtml = (receipt) => {
+    const consultationFee = Number(receipt.consultationFee || 0)
+    const serviceCharges = Number(receipt.serviceCharges || 0)
+    const medicineCharges = Number(receipt.medicineCharges || 0)
+    const labCharges = Number(receipt.labCharges || 0)
+    const totalAmount = Number(receipt.totalAmount || 0)
+    const printedAt = new Date().toLocaleString('en-US')
+    const staffName = String(profile?.name || currentUser?.name || 'Staff')
+
+    return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Receipt ${escapeHtml(receipt.invoiceId || receipt.id || '')}</title>
+    <style>
+      @page { size: A5 portrait; margin: 12mm; }
+      body { font-family: Arial, sans-serif; color: #1f2f2d; margin: 0; }
+      .receipt { border: 1px solid #d3dfdb; border-radius: 10px; padding: 14px; max-width: 520px; margin: 0 auto; }
+      .header { display: flex; justify-content: space-between; align-items: start; gap: 12px; border-bottom: 1px solid #d3dfdb; padding-bottom: 10px; margin-bottom: 12px; }
+      .clinic { font-size: 20px; font-weight: 700; color: #20463e; margin: 0; }
+      .sub { margin: 4px 0 0; font-size: 12px; color: #4d6a63; }
+      .meta { font-size: 12px; text-align: right; line-height: 1.5; }
+      .section { margin-top: 10px; }
+      .section h3 { margin: 0 0 6px; font-size: 13px; color: #2f5d54; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 12px; }
+      .label { color: #5a746d; }
+      .value { font-weight: 700; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+      th, td { border: 1px solid #d3dfdb; padding: 6px 8px; text-align: left; }
+      th { background: #eef5f2; color: #315f56; }
+      .total { font-weight: 700; background: #eef5f2; }
+      .footer { margin-top: 12px; border-top: 1px dashed #d3dfdb; padding-top: 10px; font-size: 11px; color: #5a746d; }
+      .note { margin-top: 6px; font-size: 11px; color: #738a84; }
+    </style>
+  </head>
+  <body>
+    <div class="receipt">
+      <div class="header">
+        <div>
+          <p class="clinic">PawEver Vet Clinic</p>
+          <p class="sub">Payment Receipt</p>
+        </div>
+        <div class="meta">
+          <div><strong>Invoice:</strong> ${escapeHtml(receipt.invoiceId || '-')}</div>
+          <div><strong>Appointment:</strong> ${escapeHtml(formatAppointmentReference(receipt.appointmentId))}</div>
+          <div><strong>Full ID:</strong> ${escapeHtml(receipt.appointmentId || '-')}</div>
+          <div><strong>Printed:</strong> ${escapeHtml(printedAt)}</div>
+        </div>
+      </div>
+      <div class="section">
+        <h3>Bill To</h3>
+        <div class="grid">
+          <div class="label">Owner</div><div class="value">${escapeHtml(receipt.ownerName || '-')}</div>
+          <div class="label">Pet</div><div class="value">${escapeHtml(receipt.petName || '-')}</div>
+          <div class="label">Doctor</div><div class="value">${escapeHtml(receipt.doctorName || '-')}</div>
+        </div>
+      </div>
+      <div class="section">
+        <h3>Charges</h3>
+        <table>
+          <thead><tr><th>Item</th><th>Amount</th></tr></thead>
+          <tbody>
+            <tr><td>Consultation Fee</td><td>${escapeHtml(formatBaht(consultationFee))}</td></tr>
+            <tr><td>Service Charges</td><td>${escapeHtml(formatBaht(serviceCharges))}</td></tr>
+            <tr><td>Medicine Charges</td><td>${escapeHtml(formatBaht(medicineCharges))}</td></tr>
+            <tr><td>Lab Charges</td><td>${escapeHtml(formatBaht(labCharges))}</td></tr>
+            <tr class="total"><td>Total</td><td>${escapeHtml(formatBaht(totalAmount))}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="section">
+        <h3>Payment</h3>
+        <div class="grid">
+          <div class="label">Status</div><div class="value">${escapeHtml(receipt.paymentStatus || '-')}</div>
+          <div class="label">Method</div><div class="value">${escapeHtml(receipt.paymentMethod || '-')}</div>
+          <div class="label">Date</div><div class="value">${escapeHtml(receipt.paymentDate || '-')}</div>
+          <div class="label">Reference</div><div class="value">${escapeHtml(receipt.referenceNumber || '-')}</div>
+          <div class="label">Processed By</div><div class="value">${escapeHtml(staffName)}</div>
+        </div>
+      </div>
+      <div class="footer">
+        This is a system-generated receipt.
+        <div class="note">Please keep this slip for audit and refund support.</div>
+      </div>
+    </div>
+  </body>
+</html>`
+  }
+
+  const openReceiptWindow = (receipt, shouldPrint = false) => {
+    const receiptWindow = window.open('', '_blank', 'noopener,noreferrer,width=760,height=920')
+    if (!receiptWindow) {
+      setBillingError('Unable to open receipt window. Please allow pop-ups for this site.')
+      return
+    }
+
+    receiptWindow.document.open()
+    receiptWindow.document.write(buildReceiptHtml(receipt))
+    receiptWindow.document.close()
+    receiptWindow.focus()
+
+    if (shouldPrint) {
+      receiptWindow.onload = () => {
+        receiptWindow.print()
+        receiptWindow.onafterprint = () => receiptWindow.close()
+      }
+    }
+  }
+
+  const fetchReceipt = async (billingId) => {
+    const response = await getBillingReceiptById(billingId)
+    return response?.receipt || null
+  }
+
   const handleViewReceipt = async (billingId) => {
     try {
       setBillingError('')
-      const response = await getBillingReceiptById(billingId)
-      const receipt = response?.receipt
+      const receipt = await fetchReceipt(billingId)
       if (!receipt) {
+        setBillingError('Receipt not found.')
         return
       }
-      window.alert(
-        `Invoice: ${receipt.invoiceId}\nOwner: ${receipt.ownerName}\nPet: ${receipt.petName}\nDoctor: ${
-          receipt.doctorName || '-'
-        }\nAppointment: ${
-          receipt.appointmentId || '-'
-        }\nConsultation: ${receipt.consultationFee}\nService: ${receipt.serviceCharges}\nMedicine: ${receipt.medicineCharges}\nLab: ${
-          receipt.labCharges
-        }\nTotal: ${receipt.totalAmount}\nStatus: ${receipt.paymentStatus}\nMethod: ${receipt.paymentMethod}\nDate: ${
-          receipt.paymentDate
-        }\nReference: ${receipt.referenceNumber}`
-      )
+      openReceiptWindow(receipt, false)
     } catch (requestError) {
       setBillingError(requestError.message)
     }
@@ -1221,8 +1501,17 @@ export default function StaffDashboard({ currentUser, onLogout }) {
       setBillingError('Select an invoice first.')
       return
     }
-    await handleViewReceipt(selectedBillingRecord.id)
-    window.print()
+    try {
+      setBillingError('')
+      const receipt = await fetchReceipt(selectedBillingRecord.id)
+      if (!receipt) {
+        setBillingError('Receipt not found for selected invoice.')
+        return
+      }
+      openReceiptWindow(receipt, true)
+    } catch (requestError) {
+      setBillingError(requestError.message)
+    }
   }
 
   const handleApplyReportFilters = async () => {
@@ -1281,6 +1570,16 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     window.print()
   }
 
+  const handleQuickAction = (action) => {
+    if (!action?.targetPage) {
+      return
+    }
+    setActivePage(action.targetPage)
+    if (action.title === 'Add Walk-in') {
+      openWalkInModal()
+    }
+  }
+
   return (
     <main className="st-screen">
       <section className="st-shell">
@@ -1314,7 +1613,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
               <article className="st-card st-quick-overview">
                 <h3>At a Glance</h3>
                 <div className="st-dashboard-metrics">
-                  {STAFF_DASHBOARD_METRICS.map((item) => (
+                  {dashboardMetrics.map((item) => (
                     <div key={item.title} className="st-dashboard-metric">
                       <p>{item.title}</p>
                       <strong>{item.value}</strong>
@@ -1328,7 +1627,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                 <h3>Quick Actions</h3>
                 <div className="st-dashboard-actions">
                   {STAFF_QUICK_ACTIONS.map((item) => (
-                    <button key={item.title} type="button" className="st-action-card">
+                    <button key={item.title} type="button" className="st-action-card" onClick={() => handleQuickAction(item)}>
                       <strong>{item.title}</strong>
                       <span>{item.text}</span>
                     </button>
@@ -1342,7 +1641,10 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                   {todayAppointments.map((item) => (
                     <li key={item.id}>
                       <div>
-                        <strong>{item.id}</strong>
+                        <strong className="st-appointment-ref" title={item.id}>
+                          {formatAppointmentReference(item.id)}
+                        </strong>
+                        <p className="st-appointment-id">{item.id}</p>
                         <p>
                           {item.ownerName || item.petName} | {item.doctorName}
                         </p>
@@ -1360,7 +1662,10 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                   {pendingDashboardAppointments.map((item) => (
                     <li key={`${item.id}-pending`}>
                       <div>
-                        <strong>{item.id}</strong>
+                        <strong className="st-appointment-ref" title={item.id}>
+                          {formatAppointmentReference(item.id)}
+                        </strong>
+                        <p className="st-appointment-id">{item.id}</p>
                         <p>
                           {item.ownerName || item.petName} requested confirmation
                         </p>
@@ -1377,7 +1682,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
             <div className="st-appointments">
               <article className="st-card st-quick-card">
                 <h3>Add Walk-in Appointment</h3>
-                <button type="button" className="st-plain-btn" onClick={handleAddWalkIn}>
+                <button type="button" className="st-plain-btn" onClick={openWalkInModal}>
                   Add Walk-in Appointment
                 </button>
                 {appointmentStatusMessage ? <p className="st-form-success">{appointmentStatusMessage}</p> : null}
@@ -1395,9 +1700,11 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                     Doctor
                     <select value={filterDoctor} onChange={(event) => setFilterDoctor(event.target.value)}>
                       <option value="All">All</option>
-                      <option value="Dr. Sarah Khan">Dr. Sarah Khan</option>
-                      <option value="Dr. Michael Reed">Dr. Michael Reed</option>
-                      <option value="Dr. Olivia Grant">Dr. Olivia Grant</option>
+                      {doctorFilterOptions.map((doctorName) => (
+                        <option key={doctorName} value={doctorName}>
+                          {doctorName}
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <label>
@@ -1419,7 +1726,10 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                   {filteredAppointments.map((item) => (
                     <li key={item.id}>
                       <div>
-                        <strong>{item.id}</strong>
+                        <strong className="st-appointment-ref" title={item.id}>
+                          {formatAppointmentReference(item.id)}
+                        </strong>
+                        <p className="st-appointment-id">{item.id}</p>
                         <p>
                           {item.appointmentDate} | {item.ownerName || item.petName}
                         </p>
@@ -1437,7 +1747,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                         <button type="button" onClick={() => handleRescheduleAppointment(item)}>
                           Reschedule
                         </button>
-                        <button type="button" onClick={() => handleAssignDoctor(item)}>
+                        <button type="button" onClick={() => openAssignDoctorModal(item)}>
                           Assign Doctor
                         </button>
                       </div>
@@ -1531,9 +1841,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                         </button>
                         <button type="button" onClick={() => handleViewOwnerPets(owner)}>
                           View Owner’s Pets
-                        </button>
-                        <button type="button" disabled title="Deactivate flow is not configured yet.">
-                          Deactivate (Soon)
                         </button>
                       </div>
                     </li>
@@ -1629,10 +1936,10 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                         <p>History (Read-only): Basic info only for staff.</p>
                       </div>
                       <div className="st-appointment-actions">
-                        <button type="button" onClick={() => handleUpdatePetWeight(pet)}>
+                        <button type="button" onClick={() => openPetWeightModal(pet)}>
                           Update Weight
                         </button>
-                        <button type="button" onClick={() => handleUpdateVaccinationStatus(pet)}>
+                        <button type="button" onClick={() => openPetVaccinationModal(pet)}>
                           Update Vaccination Date
                         </button>
                         <button type="button" onClick={() => handleUploadPetDocument(pet)}>
@@ -1665,7 +1972,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
           ) : activePage === 'Doctor Schedule Management' ? (
             <div className="st-appointments">
               <article className="st-card">
-                <h3>View Doctor Availability</h3>
+                <h3>Select Doctor</h3>
                 <div className="st-filters">
                   <label>
                     Doctor
@@ -1682,41 +1989,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                     </select>
                   </label>
                 </div>
-                <button type="button" className="st-plain-btn" onClick={refreshSelectedDoctorSchedule} disabled={isLoadingSchedule || !selectedDoctor}>
-                  {isLoadingSchedule ? 'Loading...' : 'Refresh Availability'}
-                </button>
-                <ul className="st-appointment-list">
-                  {isLoadingSchedule ? (
-                    <li>
-                      <div>
-                        <strong>Loading schedule...</strong>
-                      </div>
-                    </li>
-                  ) : availableSlots.length ? (
-                    availableSlots.map((slot) => (
-                    <li key={slot.id}>
-                      <div>
-                        <strong>{selectedDoctor?.name || 'Doctor'}</strong>
-                        <p>
-                          {slot.date} | {slot.startTime} - {slot.endTime}
-                        </p>
-                        <p>Status: {slot.slotType === 'emergency' ? 'Emergency Slot' : 'Available'}</p>
-                      </div>
-                      <div className="st-appointment-actions">
-                        <button type="button" onClick={() => handleRemoveScheduleSlot('available', slot.id)}>
-                          Remove
-                        </button>
-                      </div>
-                    </li>
-                    ))
-                  ) : (
-                    <li>
-                      <div>
-                        <strong>No availability slots set.</strong>
-                      </div>
-                    </li>
-                  )}
-                </ul>
+                {isLoadingSchedule ? <p>Loading selected doctor schedule...</p> : null}
                 {scheduleStatusMessage ? <p className="st-form-success">{scheduleStatusMessage}</p> : null}
                 {scheduleError ? <p className="st-form-error">{scheduleError}</p> : null}
               </article>
@@ -2055,10 +2328,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                     Medicine Charges
                     <input name="medicineCharges" type="number" step="0.01" min="0" defaultValue={selectedBillingRecord?.medicineCharges || 0} />
                   </label>
-                  <label>
-                    Lab Charges
-                    <input name="labCharges" type="number" step="0.01" min="0" defaultValue={selectedBillingRecord?.labCharges || 0} />
-                  </label>
                 </div>
                 <div className="st-billing-total">
                   <span>Total Amount</span>
@@ -2277,6 +2546,263 @@ export default function StaffDashboard({ currentUser, onLogout }) {
           )}
         </section>
       </section>
+      {isWalkInModalOpen ? (
+        <div className="st-modal-overlay" role="dialog" aria-modal="true" aria-label="Add walk-in appointment">
+          <div className="st-modal">
+            <h3>Add Walk-in Appointment</h3>
+            <form className="st-filters" onSubmit={handleAddWalkIn}>
+              <label>
+                Pet Name
+                <input name="petName" type="text" value={walkInForm.petName} onChange={handleWalkInFieldChange} required />
+              </label>
+              <label>
+                Owner Name (Optional)
+                <input name="ownerName" type="text" value={walkInForm.ownerName} onChange={handleWalkInFieldChange} />
+              </label>
+              <label>
+                Doctor
+                <select name="doctorName" value={walkInForm.doctorName} onChange={handleWalkInFieldChange} required>
+                  <option value="" disabled>
+                    Select doctor
+                  </option>
+                  {doctors.map((doctor) => (
+                    <option key={doctor.id} value={doctor.name}>
+                      {doctor.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Date
+                <input name="appointmentDate" type="date" value={walkInForm.appointmentDate} onChange={handleWalkInFieldChange} required />
+              </label>
+              <label>
+                Time
+                <input name="appointmentTime" type="time" value={walkInForm.appointmentTime} onChange={handleWalkInFieldChange} required />
+              </label>
+              <label className="st-profile-full">
+                Reason
+                <input name="reason" type="text" value={walkInForm.reason} onChange={handleWalkInFieldChange} required />
+              </label>
+              <div className="st-billing-actions">
+                <button type="submit" className="st-plain-btn">
+                  Save Walk-in Appointment
+                </button>
+                <button type="button" className="st-plain-btn st-danger-btn" onClick={closeWalkInModal}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+      {assignDoctorModalAppointment ? (
+        <div className="st-modal-overlay" role="dialog" aria-modal="true" aria-label="Assign doctor">
+          <div className="st-modal">
+            <h3>Assign Doctor</h3>
+            <form className="st-profile-form" onSubmit={handleAssignDoctorSubmit}>
+              <p>
+                <strong>Appointment:</strong> {formatAppointmentReference(assignDoctorModalAppointment.id)}
+              </p>
+              <p className="st-appointment-id">Full ID: {assignDoctorModalAppointment.id}</p>
+              <p>
+                <strong>Date:</strong> {assignDoctorModalAppointment.appointmentDate} {assignDoctorModalAppointment.appointmentTime}
+              </p>
+              <label>
+                Doctor
+                <select value={assignDoctorModalValue} onChange={(event) => setAssignDoctorModalValue(event.target.value)} required>
+                  <option value="" disabled>
+                    Select doctor
+                  </option>
+                  {doctors.map((doctor) => (
+                    <option key={doctor.id} value={doctor.name}>
+                      {doctor.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="st-billing-actions">
+                <button type="submit" className="st-plain-btn">
+                  Save
+                </button>
+                <button type="button" className="st-plain-btn st-danger-btn" onClick={closeAssignDoctorModal}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+      {ownerModalMode && activeOwner ? (
+        <div className="st-modal-overlay" role="dialog" aria-modal="true" aria-label="Owner details modal">
+          <div className="st-modal">
+            {ownerModalMode === 'edit' ? (
+              <>
+                <h3>Edit Owner Details</h3>
+                <form className="st-profile-form" onSubmit={handleOwnerEditSubmit}>
+                  <label>
+                    Owner Name
+                    <input name="name" type="text" value={ownerEditForm.name} onChange={handleOwnerEditFieldChange} required />
+                  </label>
+                  <label>
+                    Phone Number
+                    <input name="phone" type="tel" value={ownerEditForm.phone} onChange={handleOwnerEditFieldChange} />
+                  </label>
+                  <label className="st-profile-full">
+                    Address
+                    <input name="address" type="text" value={ownerEditForm.address} onChange={handleOwnerEditFieldChange} />
+                  </label>
+                  <label>
+                    Preferred Contact
+                    <select name="preferredContact" value={ownerEditForm.preferredContact} onChange={handleOwnerEditFieldChange}>
+                      <option>Email</option>
+                      <option>Phone</option>
+                      <option>SMS</option>
+                    </select>
+                  </label>
+                  <div className="st-billing-actions">
+                    <button type="submit" className="st-plain-btn">
+                      Save Changes
+                    </button>
+                    <button type="button" className="st-plain-btn st-danger-btn" onClick={closeOwnerModal}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : null}
+            {ownerModalMode === 'profile' ? (
+              <>
+                <h3>Owner Profile</h3>
+                <div className="st-owner-profile-grid">
+                  <p>
+                    <strong>Owner ID:</strong> {activeOwner.id}
+                  </p>
+                  <p>
+                    <strong>Name:</strong> {activeOwner.name || '-'}
+                  </p>
+                  <p>
+                    <strong>Email:</strong> {activeOwner.email || '-'}
+                  </p>
+                  <p>
+                    <strong>Phone:</strong> {activeOwner.phone || '-'}
+                  </p>
+                  <p>
+                    <strong>Preferred Contact:</strong> {activeOwner.preferredContact || 'Email'}
+                  </p>
+                  <p>
+                    <strong>Address:</strong> {activeOwner.address || '-'}
+                  </p>
+                  <p>
+                    <strong>Total Pets:</strong> {ownerPetCounts[activeOwner.id] || 0}
+                  </p>
+                </div>
+                <div className="st-billing-actions">
+                  <button type="button" className="st-plain-btn" onClick={closeOwnerModal}>
+                    Close
+                  </button>
+                </div>
+              </>
+            ) : null}
+            {ownerModalMode === 'pets' ? (
+              <>
+                <h3>{activeOwner.name || 'Owner'}'s Pets</h3>
+                {isLoadingOwnerModalPets ? (
+                  <p>Loading pets...</p>
+                ) : ownerModalPets.length ? (
+                  <ul className="st-appointment-list">
+                    {ownerModalPets.map((pet) => (
+                      <li key={pet.id}>
+                        <div>
+                          <strong>
+                            {pet.id} - {pet.name}
+                          </strong>
+                          <p>Breed: {pet.breed || '-'}</p>
+                          <p>Age: {pet.age || '-'}</p>
+                          <p>Weight: {pet.weight || '-'}</p>
+                          <p>Vaccination: {pet.vaccinationStatus || '-'}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No pets registered for this owner.</p>
+                )}
+                <div className="st-billing-actions">
+                  <button type="button" className="st-plain-btn" onClick={closeOwnerModal}>
+                    Close
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      {petEditModalMode && petEditModalPet ? (
+        <div className="st-modal-overlay" role="dialog" aria-modal="true" aria-label="Pet update modal">
+          <div className="st-modal">
+            <h3>{petEditModalMode === 'weight' ? 'Update Pet Weight' : 'Update Vaccination Date / Status'}</h3>
+            <form className="st-profile-form" onSubmit={handlePetEditSubmit}>
+              <p>
+                <strong>Pet:</strong> {petEditModalPet.name || '-'} ({petEditModalPet.id})
+              </p>
+              <label>
+                {petEditModalMode === 'weight' ? 'Weight' : 'Vaccination Date / Status'}
+                <input
+                  type="text"
+                  value={petEditModalValue}
+                  onChange={(event) => setPetEditModalValue(event.target.value)}
+                  placeholder={petEditModalMode === 'weight' ? 'Enter new weight' : 'e.g. 2026-03-22 / Up to date'}
+                  required
+                />
+              </label>
+              <div className="st-billing-actions">
+                <button type="submit" className="st-plain-btn">
+                  Save
+                </button>
+                <button type="button" className="st-plain-btn st-danger-btn" onClick={closePetEditModal}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+      {petHistoryModalPet ? (
+        <div className="st-modal-overlay" role="dialog" aria-modal="true" aria-label="Pet history details">
+          <div className="st-modal">
+            <h3>Pet History</h3>
+            <div className="st-owner-profile-grid">
+              <p>
+                <strong>Pet:</strong> {petHistoryModalPet.name || '-'}
+              </p>
+              <p>
+                <strong>Owner:</strong> {petHistoryModalPet.ownerName || '-'}
+              </p>
+              <p>
+                <strong>Breed:</strong> {petHistoryModalPet.breed || '-'}
+              </p>
+              <p>
+                <strong>Age:</strong> {petHistoryModalPet.age || '-'}
+              </p>
+              <p>
+                <strong>Weight:</strong> {petHistoryModalPet.weight || '-'}
+              </p>
+              <p>
+                <strong>Vaccination:</strong> {petHistoryModalPet.vaccinationStatus || '-'}
+              </p>
+              <p>
+                <strong>Note:</strong> History is read-only for staff.
+              </p>
+            </div>
+            <div className="st-billing-actions">
+              <button type="button" className="st-plain-btn" onClick={() => setPetHistoryModalPet(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }

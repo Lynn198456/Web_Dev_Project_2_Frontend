@@ -13,6 +13,7 @@ import {
   updatePetById,
   updateUserProfile,
 } from '../../../lib/api'
+import { formatAppointmentReference } from '../../../lib/appointmentRef'
 
 const SIDEBAR_ITEMS = [
   { id: 'Dashboard', label: 'Dashboard', icon: '🏠' },
@@ -535,7 +536,8 @@ function AppointmentHistoryPage({ appointments, onBookAppointment, onDeleteAppoi
           <ul className="po-detail-list">
             <li>
               <span>Appointment ID</span>
-              <strong>{selectedAppointment.id}</strong>
+              <strong>{formatAppointmentReference(selectedAppointment.id)}</strong>
+              <p className="po-appointment-id">{selectedAppointment.id}</p>
             </li>
             <li>
               <span>Date</span>
@@ -761,7 +763,8 @@ function MedicalRecordsPage({ pets, appointments }) {
   const buildRecordLines = (record) => [
     'Pet Medical Record',
     '',
-    `Appointment ID: ${record.id}`,
+    `Appointment: ${formatAppointmentReference(record.id)}`,
+    `Full ID: ${record.id}`,
     `Pet: ${record.petName}`,
     `Doctor: ${record.doctorName}`,
     `Date: ${formatAppointmentDate(record.appointmentDate || record.date)}`,
@@ -811,7 +814,7 @@ function MedicalRecordsPage({ pets, appointments }) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `medical-record-${selectedRecord.id}.pdf`
+    link.download = `medical-record-${formatAppointmentReference(selectedRecord.id)}.pdf`
     document.body.appendChild(link)
     link.click()
     link.remove()
@@ -903,7 +906,8 @@ function MedicalRecordsPage({ pets, appointments }) {
               {filteredRecords.map((visit) => (
                 <li key={visit.id}>
                   <div>
-                    <strong>{visit.id}</strong>
+                    <strong>{formatAppointmentReference(visit.id)}</strong>
+                    <p className="po-appointment-id">{visit.id}</p>
                     <p>
                       {formatAppointmentDate(visit.appointmentDate || visit.date)} | {visit.petName} | {visit.doctorName}
                     </p>
@@ -924,7 +928,8 @@ function MedicalRecordsPage({ pets, appointments }) {
             <ul className="po-record-list">
               <li>
                 <h4>Appointment ID</h4>
-                <p>{selectedRecord.id}</p>
+                <p>{formatAppointmentReference(selectedRecord.id)}</p>
+                <p className="po-appointment-id">{selectedRecord.id}</p>
               </li>
               <li>
                 <h4>Pet</h4>

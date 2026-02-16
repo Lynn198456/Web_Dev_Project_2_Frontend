@@ -75,6 +75,46 @@
   cursor: pointer;
 }
 
+.st-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 39, 36, 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.st-modal {
+  width: min(720px, 100%);
+  background: #f6fbf9;
+  border: 1px solid rgba(83, 119, 110, 0.35);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 24px 40px rgba(28, 52, 46, 0.25);
+}
+
+.st-modal h3 {
+  margin: 0 0 10px;
+  font-size: 20px;
+  color: #264941;
+}
+
+.st-owner-profile-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.st-owner-profile-grid p {
+  margin: 0;
+  border: 1px solid rgba(94, 142, 131, 0.25);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
 .st-main {
   min-width: 0;
   border-radius: 16px;
@@ -329,6 +369,18 @@
 .st-appointment-list p {
   margin: 3px 0 0;
   font-size: 12px;
+}
+
+.st-appointment-ref {
+  letter-spacing: 0.03em;
+}
+
+.st-appointment-id {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #4f6f67;
+  font-family: 'Courier New', Courier, monospace;
+  word-break: break-all;
 }
 
 .st-appointment-actions {

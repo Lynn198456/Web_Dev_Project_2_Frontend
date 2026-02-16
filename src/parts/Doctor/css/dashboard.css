@@ -122,6 +122,13 @@
   line-height: 1.4;
 }
 
+.dr-appointment-id {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px !important;
+  color: #4a6970;
+  word-break: break-all;
+}
+
 .dr-count {
   font-weight: 700;
   color: #2f5f69;

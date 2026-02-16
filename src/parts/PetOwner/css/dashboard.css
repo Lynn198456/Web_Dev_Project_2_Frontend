@@ -225,6 +225,20 @@
   text-align: right;
 }
 
+.po-appointment-id {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #7a6641;
+  font-family: 'Courier New', Courier, monospace;
+  word-break: break-all;
+}
+
+.po-detail-list .po-appointment-id {
+  flex-basis: 100%;
+  text-align: right;
+  margin-top: 2px;
+}
+
 .po-note-list li {
   font-size: 12px;
   line-height: 1.45;
