@@ -6,7 +6,6 @@ import {
   changeUserPassword,
   createConsultation,
   createMedicalRecord,
-  createPrescription,
   deleteDoctorScheduleSlot,
   getDoctorSchedule,
   getUserProfile,
@@ -151,9 +150,6 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
   const [consultErrorMessage, setConsultErrorMessage] = useState('')
   const [pets, setPets] = useState([])
   const [prescriptionHistory, setPrescriptionHistory] = useState([])
-  const [isSavingPrescription, setIsSavingPrescription] = useState(false)
-  const [prescriptionStatusMessage, setPrescriptionStatusMessage] = useState('')
-  const [prescriptionErrorMessage, setPrescriptionErrorMessage] = useState('')
   const [medicalRecords, setMedicalRecords] = useState([])
   const [isSavingMedicalRecord, setIsSavingMedicalRecord] = useState(false)
   const [medicalRecordStatusMessage, setMedicalRecordStatusMessage] = useState('')
@@ -238,6 +234,12 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
       ownerName: String(item.ownerName || ''),
     }))
     .sort((a, b) => a.name.localeCompare(b.name))
+  const consultationPrescriptionHistory = selectedConsultation?.pet
+    ? prescriptionHistory.filter((item) => String(item.petName || '').trim() === String(selectedConsultation.pet || '').trim())
+    : prescriptionHistory
+  const consultationMedicalHistory = selectedConsultation?.pet
+    ? medicalRecords.filter((item) => String(item.petName || '').trim() === String(selectedConsultation.pet || '').trim())
+    : medicalRecords
 
   useEffect(() => {
     return () => {
@@ -573,40 +575,6 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
     }
   }
 
-  const handlePrescriptionSubmit = async (event) => {
-    event.preventDefault()
-    const formData = new FormData(event.currentTarget)
-    const petId = String(formData.get('petId') || '').trim()
-    const medicine = String(formData.get('medicine') || '').trim()
-    const dosage = String(formData.get('dosage') || '').trim()
-    const duration = String(formData.get('duration') || '').trim()
-    const notes = String(formData.get('notes') || '').trim()
-
-    try {
-      setIsSavingPrescription(true)
-      setPrescriptionErrorMessage('')
-      setPrescriptionStatusMessage('')
-      await createPrescription({
-        petId,
-        doctorId: profile?.id || '',
-        doctorName: profile?.name || currentUser?.name || 'Doctor',
-        medicine,
-        dosage,
-        duration,
-        notes,
-      })
-      const doctorName = String(profile?.name || currentUser?.name || '').trim()
-      const response = await listPrescriptions(doctorName ? { doctorName } : {})
-      setPrescriptionHistory(Array.isArray(response?.prescriptions) ? response.prescriptions : [])
-      setPrescriptionStatusMessage('Prescription saved to Prescription_data and pet_data updated.')
-      event.currentTarget.reset()
-    } catch (requestError) {
-      setPrescriptionErrorMessage(requestError.message)
-    } finally {
-      setIsSavingPrescription(false)
-    }
-  }
-
   const handleMedicalRecordSubmit = async (event) => {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
@@ -934,11 +902,138 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                 )}
               </article>
 
-              <form
-                className="dr-card dr-consult-form"
-                onSubmit={handleConsultationSubmit}
-                key={selectedConsultation?.id || 'consult-form'}
-              >
+              <article className="dr-card">
+                <h3>Consultation Data</h3>
+                <ul className="dr-record-list">
+                  {consultationMedicalHistory.length ? (
+                    consultationMedicalHistory.map((record) => (
+                      <li key={record.id}>
+                        <p>
+                          <strong>Date:</strong> {record.recordDate || '-'} | <strong>Doctor:</strong> {record.doctorName || '-'}
+                        </p>
+                        <p>
+                          <strong>Symptoms:</strong> {record.notes || '-'}
+                        </p>
+                        <p>
+                          <strong>Diagnosis:</strong> {record.diagnosis || '-'}
+                        </p>
+                        <p>
+                          <strong>Treatment Plan:</strong> {record.treatmentPlan || '-'}
+                        </p>
+                        <p>
+                          <strong>Prescription:</strong> {record.prescription || '-'}
+                        </p>
+                        <p>
+                          <strong>Vaccine:</strong> {record.vaccine || '-'}
+                        </p>
+                        <p>
+                          <strong>Lab Result:</strong> {record.labResult || '-'}
+                        </p>
+                      </li>
+                    ))
+                  ) : (
+                    <li>
+                      <div>
+                        <strong>No consultation data for this appointment pet.</strong>
+                      </div>
+                    </li>
+                  )}
+                </ul>
+              </article>
+
+              <article className="dr-card">
+                <h3>Prescription Data</h3>
+                <ul className="dr-prescription-list">
+                  {consultationPrescriptionHistory.length ? (
+                    consultationPrescriptionHistory.map((item) => (
+                      <li key={item.id}>
+                        <div>
+                          <strong>
+                            {formatPetReference(item.petId || item.id)} - {item.petName}
+                          </strong>
+                          <p className="dr-appointment-id">{item.petId || item.id}</p>
+                          <p>
+                            {new Date(item.createdAt).toLocaleDateString('en-US')} | {item.medicine}
+                          </p>
+                          <p>
+                            {item.dosage} | {item.duration}
+                          </p>
+                        </div>
+                      </li>
+                    ))
+                  ) : (
+                    <li>
+                      <div>
+                        <strong>No prescription data for this appointment pet.</strong>
+                      </div>
+                    </li>
+                  )}
+                </ul>
+              </article>
+            </div>
+          ) : activePage === 'Pet Medical Records Page' ? (
+            <div className="dr-records">
+              <article className="dr-card">
+                <h3>Search Records</h3>
+                <p>Search by pet name / owner / ID</p>
+                <input
+                  className="dr-record-search"
+                  type="text"
+                  placeholder="Type pet name, owner, or record ID"
+                  value={recordSearch}
+                  onChange={(event) => setRecordSearch(event.target.value)}
+                />
+              </article>
+
+              <article className="dr-card">
+                <h3>History</h3>
+                {!recordSearch.trim() ? (
+                  <p>Type in search to see matching history records.</p>
+                ) : filteredRecords.length === 0 ? (
+                  <p>No matching history found.</p>
+                ) : (
+                  <ul className="dr-record-list">
+                    {filteredRecords.map((record) => (
+                      <li key={record.id}>
+                        <p>
+                          <strong>Date:</strong> {record.recordDate || '-'} | <strong>Doctor:</strong> {record.doctorName || '-'}
+                        </p>
+                        <p>
+                          <strong>{record.petName}</strong> ({formatPetReference(record.petId || record.id)}) - Owner: {record.ownerName}
+                        </p>
+                        <p>
+                          <strong>Past Diagnoses:</strong> {record.diagnosis}
+                        </p>
+                        <p>
+                          <strong>Prescriptions:</strong> {record.prescription}
+                        </p>
+                        <p>
+                          <strong>Vaccines:</strong> {record.vaccine}
+                        </p>
+                        <p>
+                          <strong>Lab Results:</strong> {record.labResult}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </article>
+
+            </div>
+          ) : activePage === 'Prescriptions Page' ? (
+            <div className="dr-prescriptions">
+              <form className="dr-card dr-consult-form" onSubmit={handleConsultationSubmit} key={`prescription-${selectedConsultation?.id || 'none'}`}>
+                <h3>Consultation Entry (Saved from Prescriptions Page)</h3>
+                <label className="dr-consult-select">
+                  Select Appointment
+                  <select value={selectedConsultation?.id || ''} onChange={(event) => setConsultAppointmentId(event.target.value)}>
+                    {consultationAppointments.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {formatConsultOptionLabel(item)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label>
                   Symptoms / Reason for Visit
                   <textarea
@@ -995,122 +1090,11 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                     </select>
                   </label>
                 </div>
-                <div className="dr-consult-actions">
-                  <button type="submit" disabled={isSavingConsultation || !selectedConsultation}>
-                    {isSavingConsultation ? 'Saving...' : 'Save Consultation'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActivePage('Appointments Page')}
-                    disabled={isSavingConsultation}
-                  >
-                    Back to Appointments
-                  </button>
-                </div>
+                <button type="submit" disabled={isSavingConsultation || !selectedConsultation}>
+                  {isSavingConsultation ? 'Saving...' : 'Save Consultation'}
+                </button>
                 {consultStatusMessage ? <p className="dr-form-success">{consultStatusMessage}</p> : null}
                 {consultErrorMessage ? <p className="dr-form-error">{consultErrorMessage}</p> : null}
-              </form>
-            </div>
-          ) : activePage === 'Pet Medical Records Page' ? (
-            <div className="dr-records">
-              <article className="dr-card">
-                <h3>Search Records</h3>
-                <p>Search by pet name / owner / ID</p>
-                <input
-                  className="dr-record-search"
-                  type="text"
-                  placeholder="Type pet name, owner, or record ID"
-                  value={recordSearch}
-                  onChange={(event) => setRecordSearch(event.target.value)}
-                />
-              </article>
-
-              <article className="dr-card">
-                <h3>History</h3>
-                {!recordSearch.trim() ? (
-                  <p>Type in search to see matching history records.</p>
-                ) : filteredRecords.length === 0 ? (
-                  <p>No matching history found.</p>
-                ) : (
-                  <ul className="dr-record-list">
-                    {filteredRecords.map((record) => (
-                      <li key={record.id}>
-                        <p>
-                          <strong>Date:</strong> {record.recordDate || '-'} | <strong>Doctor:</strong> {record.doctorName || '-'}
-                        </p>
-                        <p>
-                          <strong>{record.petName}</strong> ({formatPetReference(record.petId || record.id)}) - Owner: {record.ownerName}
-                        </p>
-                        <p>
-                          <strong>Past Diagnoses:</strong> {record.diagnosis}
-                        </p>
-                        <p>
-                          <strong>Prescriptions:</strong> {record.prescription}
-                        </p>
-                        <p>
-                          <strong>Vaccines:</strong> {record.vaccine}
-                        </p>
-                        <p>
-                          <strong>Lab Results:</strong> {record.labResult}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </article>
-
-              <form className="dr-card dr-record-entry" onSubmit={handleMedicalRecordSubmit}>
-                <h3>Add New Record Entry (Doctor Only)</h3>
-                <div className="dr-entry-fields">
-                  <select name="petId" defaultValue="" required>
-                    <option value="" disabled>
-                      Select pet
-                    </option>
-                    {prescriptionPetOptions.map((pet) => (
-                      <option key={pet.id} value={pet.id}>
-                        {pet.name} ({formatPetReference(pet.id)}) {pet.ownerName ? `- ${pet.ownerName}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <input name="recordDate" type="date" />
-                  <textarea name="diagnosis" rows="2" placeholder="Diagnosis" required />
-                  <textarea name="prescription" rows="2" placeholder="Prescription" required />
-                  <textarea name="vaccine" rows="2" placeholder="Vaccination records" />
-                  <textarea name="labResult" rows="2" placeholder="Lab results" />
-                  <textarea name="notes" rows="2" placeholder="Additional notes" />
-                </div>
-                <button type="submit" disabled={isSavingMedicalRecord}>
-                  {isSavingMedicalRecord ? 'Saving...' : 'Add New Record Entry'}
-                </button>
-                {medicalRecordStatusMessage ? <p className="dr-form-success">{medicalRecordStatusMessage}</p> : null}
-                {medicalRecordErrorMessage ? <p className="dr-form-error">{medicalRecordErrorMessage}</p> : null}
-              </form>
-            </div>
-          ) : activePage === 'Prescriptions Page' ? (
-            <div className="dr-prescriptions">
-              <form className="dr-card dr-prescription-form" onSubmit={handlePrescriptionSubmit}>
-                <h3>Create Prescription</h3>
-                <div className="dr-entry-fields">
-                  <select name="petId" defaultValue="" required>
-                    <option value="" disabled>
-                      Select pet
-                    </option>
-                    {prescriptionPetOptions.map((pet) => (
-                      <option key={pet.id} value={pet.id}>
-                        {pet.name} {pet.ownerName ? `(${pet.ownerName})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <input name="medicine" type="text" placeholder="Medicine" required />
-                  <input name="dosage" type="text" placeholder="Dosage" required />
-                  <input name="duration" type="text" placeholder="Duration" required />
-                  <textarea name="notes" rows="3" placeholder="Additional notes (optional)" />
-                </div>
-                <button type="submit" disabled={isSavingPrescription || !prescriptionPetOptions.length}>
-                  {isSavingPrescription ? 'Saving...' : 'Create Prescription'}
-                </button>
-                {prescriptionStatusMessage ? <p className="dr-form-success">{prescriptionStatusMessage}</p> : null}
-                {prescriptionErrorMessage ? <p className="dr-form-error">{prescriptionErrorMessage}</p> : null}
               </form>
 
               <article className="dr-card">
