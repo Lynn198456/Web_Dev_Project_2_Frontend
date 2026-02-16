@@ -1186,6 +1186,22 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
   const [passwordError, setPasswordError] = useState('')
   const [passwordStatus, setPasswordStatus] = useState('')
   const isPetOwner = role === 'pet-owner' || !role
+  const currentUserId = String(currentUser?.id || '').trim()
+  const currentUserName = String(profile?.name || currentUser?.name || '')
+    .trim()
+    .toLowerCase()
+
+  const isAppointmentOwnedByCurrentUser = (item) => {
+    const ownerId = String(item?.ownerId || item?.userId || '').trim()
+    if (ownerId && currentUserId) {
+      return ownerId === currentUserId
+    }
+
+    const ownerName = String(item?.ownerName || '').trim().toLowerCase()
+    const reason = String(item?.reason || '').toLowerCase()
+    const isWalkIn = reason.includes('walk-in')
+    return Boolean(currentUserName && ownerName && ownerName === currentUserName && !isWalkIn)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -1228,7 +1244,8 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
       try {
         const response = await listAppointments({ userId: currentUser.id })
         if (!cancelled) {
-          setAppointments(Array.isArray(response?.appointments) ? response.appointments : [])
+          const fetched = Array.isArray(response?.appointments) ? response.appointments : []
+          setAppointments(fetched.filter(isAppointmentOwnedByCurrentUser))
         }
       } catch (_error) {
         if (!cancelled) {
@@ -1241,7 +1258,7 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
     return () => {
       cancelled = true
     }
-  }, [currentUser?.id, currentUser?.name])
+  }, [currentUser?.id, currentUser?.name, profile?.name])
 
   useEffect(() => {
     let cancelled = false
@@ -1323,6 +1340,9 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
   }
 
   const handleAppointmentBooked = (appointment) => {
+    if (!isAppointmentOwnedByCurrentUser(appointment)) {
+      return
+    }
     setAppointments((currentItems) => [appointment, ...currentItems])
     setActivePage('Appointment History')
   }

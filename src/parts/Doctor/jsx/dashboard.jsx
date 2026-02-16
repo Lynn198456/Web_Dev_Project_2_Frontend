@@ -111,6 +111,22 @@ const PAGE_CONTENT = {
   },
 }
 
+function formatDoctorReference(doctorId) {
+  const rawId = String(doctorId || '').trim()
+  if (!rawId) {
+    return 'DR-UNKNOWN'
+  }
+  return `DR-${rawId.slice(-6).toUpperCase()}`
+}
+
+function formatPetReference(petId) {
+  const rawId = String(petId || '').trim()
+  if (!rawId) {
+    return 'PET-UNKNOWN'
+  }
+  return `PET-${rawId.slice(-6).toUpperCase()}`
+}
+
 export default function DoctorDashboard({ currentUser, onLogout }) {
   const [activePage, setActivePage] = useState('Doctor Dashboard')
   const [appointmentView, setAppointmentView] = useState('Today')
@@ -196,6 +212,13 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
       day: 'numeric',
       year: 'numeric',
     })
+  }
+  const formatConsultOptionLabel = (item) => {
+    const shortId = formatAppointmentReference(item.id)
+    const datePart = item.date || '-'
+    const timePart = item.time || '--:--'
+    const petPart = item.pet || '-'
+    return `${shortId} | ${datePart} ${timePart} | ${petPart}`
   }
   const filteredRecords = medicalRecords.filter((item) => {
     const query = recordSearch.trim().toLowerCase()
@@ -877,7 +900,7 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                       >
                         {consultationAppointments.map((item) => (
                           <option key={item.id} value={item.id}>
-                            {formatAppointmentReference(item.id)} | {item.date} {item.time ? `- ${item.time}` : ''} | {item.pet} | {item.owner}
+                            {formatConsultOptionLabel(item)}
                           </option>
                         ))}
                       </select>
@@ -1016,7 +1039,7 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                           <strong>Date:</strong> {record.recordDate || '-'} | <strong>Doctor:</strong> {record.doctorName || '-'}
                         </p>
                         <p>
-                          <strong>{record.petName}</strong> ({record.petId || record.id}) - Owner: {record.ownerName}
+                          <strong>{record.petName}</strong> ({formatPetReference(record.petId || record.id)}) - Owner: {record.ownerName}
                         </p>
                         <p>
                           <strong>Past Diagnoses:</strong> {record.diagnosis}
@@ -1045,7 +1068,7 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                     </option>
                     {prescriptionPetOptions.map((pet) => (
                       <option key={pet.id} value={pet.id}>
-                        {pet.name} {pet.ownerName ? `(${pet.ownerName})` : ''}
+                        {pet.name} ({formatPetReference(pet.id)}) {pet.ownerName ? `- ${pet.ownerName}` : ''}
                       </option>
                     ))}
                   </select>
@@ -1097,8 +1120,9 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                     <li key={item.id}>
                       <div>
                         <strong>
-                          {item.id} - {item.petName}
+                          {formatPetReference(item.petId || item.id)} - {item.petName}
                         </strong>
+                        <p className="dr-appointment-id">{item.petId || item.id}</p>
                         <p>
                           {new Date(item.createdAt).toLocaleDateString('en-US')} | {item.medicine}
                         </p>
@@ -1168,40 +1192,6 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                 </ul>
               </form>
 
-              <form className="dr-card dr-working-hours" onSubmit={handleClinicHoursSubmit}>
-                <h3>Clinic Working Hours</h3>
-                <div className="dr-hours-grid">
-                  <label>
-                    Monday - Friday
-                    <input
-                      type="text"
-                      value={clinicHours.mondayFriday}
-                      onChange={(event) => setClinicHours((current) => ({ ...current, mondayFriday: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    Saturday
-                    <input
-                      type="text"
-                      value={clinicHours.saturday}
-                      onChange={(event) => setClinicHours((current) => ({ ...current, saturday: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    Sunday
-                    <input
-                      type="text"
-                      value={clinicHours.sunday}
-                      onChange={(event) => setClinicHours((current) => ({ ...current, sunday: event.target.value }))}
-                    />
-                  </label>
-                </div>
-                <button type="submit" disabled={isSavingSchedule}>
-                  {isSavingSchedule ? 'Saving...' : 'Save Working Hours'}
-                </button>
-                {scheduleStatusMessage ? <p className="dr-form-success">{scheduleStatusMessage}</p> : null}
-                {scheduleErrorMessage ? <p className="dr-form-error">{scheduleErrorMessage}</p> : null}
-              </form>
             </div>
           ) : activePage === 'Profile' ? (
             <div className="dr-profile-settings">
@@ -1216,10 +1206,8 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                 <div className="dr-profile-meta">
                   <h3>{profile?.name || 'Doctor User'}</h3>
                   <p>{profile?.role || 'doctor'}</p>
-                  <p>User ID: {profile?.id || '-'}</p>
-                </div>
-                <div className="dr-profile-badges">
-                  <span>On Duty</span>
+                  <p>Doctor ID: {formatDoctorReference(profile?.id)}</p>
+                  <p className="dr-appointment-id">{profile?.id || '-'}</p>
                 </div>
               </article>
 
@@ -1276,50 +1264,6 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                 </form>
                 {profileStatus ? <p className="dr-form-success">{profileStatus}</p> : null}
                 {profileError ? <p className="dr-form-error">{profileError}</p> : null}
-              </article>
-
-              <article className="dr-card">
-                <h3>Notification Preferences</h3>
-                <p>Choose which updates you want to receive.</p>
-                <form className="dr-toggle-list" onSubmit={handleDoctorNotificationSubmit}>
-                  <label>
-                    <input
-                      name="appointmentRequestAlerts"
-                      type="checkbox"
-                      defaultChecked={Boolean(profile?.notificationPreferences?.appointmentRequestAlerts)}
-                    />
-                    Appointment request alerts
-                  </label>
-                  <label>
-                    <input
-                      name="paymentConfirmationAlerts"
-                      type="checkbox"
-                      defaultChecked={Boolean(profile?.notificationPreferences?.paymentConfirmationAlerts)}
-                    />
-                    Payment confirmation alerts
-                  </label>
-                  <label>
-                    <input
-                      name="doctorScheduleChanges"
-                      type="checkbox"
-                      defaultChecked={Boolean(profile?.notificationPreferences?.doctorScheduleChanges)}
-                    />
-                    Doctor schedule changes
-                  </label>
-                  <label>
-                    <input
-                      name="weeklyPerformanceSummary"
-                      type="checkbox"
-                      defaultChecked={Boolean(profile?.notificationPreferences?.weeklyPerformanceSummary)}
-                    />
-                    Weekly performance summary
-                  </label>
-                  <button type="submit" disabled={isSavingNotifications}>
-                    {isSavingNotifications ? 'Saving...' : 'Save Notification Preferences'}
-                  </button>
-                </form>
-                {notificationStatus ? <p className="dr-form-success">{notificationStatus}</p> : null}
-                {notificationError ? <p className="dr-form-error">{notificationError}</p> : null}
               </article>
 
               <article className="dr-card">

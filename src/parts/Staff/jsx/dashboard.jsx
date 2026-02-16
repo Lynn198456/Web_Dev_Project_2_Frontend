@@ -93,7 +93,6 @@ const STAFF_CONTENT = {
 const STAFF_QUICK_ACTIONS = [
   { title: 'Add Appointment', text: 'Create a new scheduled appointment.', targetPage: 'Appointment Management' },
   { title: 'Register Pet Owner', text: 'Add a new owner account with contact details.', targetPage: 'Pet Owner Management' },
-  { title: 'Add Walk-in', text: 'Register walk-in patient quickly at front desk.', targetPage: 'Appointment Management' },
   { title: 'Generate Invoice', text: 'Create bill and move to payment flow.', targetPage: 'Billing & Payments' },
 ]
 
@@ -129,6 +128,30 @@ function normalizeIsoDate(value) {
     return ''
   }
   return parsed.toISOString().slice(0, 10)
+}
+
+function formatOwnerReference(ownerId) {
+  const rawId = String(ownerId || '').trim()
+  if (!rawId) {
+    return 'OWN-UNKNOWN'
+  }
+  return `OWN-${rawId.slice(-6).toUpperCase()}`
+}
+
+function formatPetReference(petId) {
+  const rawId = String(petId || '').trim()
+  if (!rawId) {
+    return 'PET-UNKNOWN'
+  }
+  return `PET-${rawId.slice(-6).toUpperCase()}`
+}
+
+function formatEmployeeReference(employeeId) {
+  const rawId = String(employeeId || '').trim()
+  if (!rawId) {
+    return 'EMP-UNKNOWN'
+  }
+  return `EMP-${rawId.slice(-6).toUpperCase()}`
 }
 
 function getLocalIsoDate(date) {
@@ -222,15 +245,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
   const [isChangingStaffPassword, setIsChangingStaffPassword] = useState(false)
   const [staffPasswordStatus, setStaffPasswordStatus] = useState('')
   const [staffPasswordError, setStaffPasswordError] = useState('')
-  const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false)
-  const [walkInForm, setWalkInForm] = useState({
-    petName: '',
-    ownerName: '',
-    doctorName: '',
-    appointmentDate: '',
-    appointmentTime: '',
-    reason: 'Walk-in consultation',
-  })
   const [ownerModalMode, setOwnerModalMode] = useState('')
   const [activeOwner, setActiveOwner] = useState(null)
   const [ownerModalPets, setOwnerModalPets] = useState([])
@@ -245,6 +259,9 @@ export default function StaffDashboard({ currentUser, onLogout }) {
   const [petEditModalMode, setPetEditModalMode] = useState('')
   const [petEditModalPet, setPetEditModalPet] = useState(null)
   const [petEditModalValue, setPetEditModalValue] = useState('')
+  const [rescheduleModalAppointment, setRescheduleModalAppointment] = useState(null)
+  const [rescheduleModalDate, setRescheduleModalDate] = useState('')
+  const [rescheduleModalTime, setRescheduleModalTime] = useState('')
   const [assignDoctorModalAppointment, setAssignDoctorModalAppointment] = useState(null)
   const [assignDoctorModalValue, setAssignDoctorModalValue] = useState('')
   const activeContent = STAFF_CONTENT[activePage] || STAFF_CONTENT.Dashboard
@@ -297,16 +314,10 @@ export default function StaffDashboard({ currentUser, onLogout }) {
   const todayCollected = billingRecords
     .filter((item) => item.paymentStatus === 'Paid' && normalizeIsoDate(item.paymentDate) === todayDashboardDate)
     .reduce((sum, item) => sum + Number(item.totalAmount || 0), 0)
-  const todayWalkInAppointments = todayAppointments.filter((item) =>
-    String(item.reason || '')
-      .toLowerCase()
-      .includes('walk-in')
-  )
   const dashboardMetrics = [
     { title: 'Today’s Total Appointments', value: String(todayAppointments.length), note: 'Scheduled today' },
     { title: 'Pending Appointment Requests', value: String(pendingDashboardAppointments.length), note: 'Awaiting confirmation' },
     { title: 'Total Doctors Available', value: String(availableDoctorCount), note: 'Available right now' },
-    { title: 'Walk-in Patients', value: String(todayWalkInAppointments.length), note: 'Checked in today' },
     { title: 'Payment Summary (Today)', value: formatBaht(todayCollected), note: 'Collected payments' },
   ]
   const billingSummary = [
@@ -769,20 +780,36 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     }
   }
 
-  const handleRescheduleAppointment = async (appointment) => {
-    const newDate = window.prompt('Enter new date (YYYY-MM-DD):', appointment.appointmentDate || '')
-    if (!newDate) {
+  const openRescheduleModal = (appointment) => {
+    setRescheduleModalAppointment(appointment)
+    setRescheduleModalDate(String(appointment.appointmentDate || ''))
+    setRescheduleModalTime(String(appointment.appointmentTime || ''))
+  }
+
+  const closeRescheduleModal = () => {
+    setRescheduleModalAppointment(null)
+    setRescheduleModalDate('')
+    setRescheduleModalTime('')
+  }
+
+  const handleRescheduleAppointment = async (event) => {
+    event.preventDefault()
+    if (!rescheduleModalAppointment?.id) {
       return
     }
-    const newTime = window.prompt('Enter new time (HH:MM):', appointment.appointmentTime || '')
-    if (!newTime) {
+    const newDate = String(rescheduleModalDate || '').trim()
+    const newTime = String(rescheduleModalTime || '').trim()
+    if (!newDate || !newTime) {
+      setAppointmentError('Date and time are required.')
       return
     }
-    await handleAppointmentUpdate(appointment.id, {
+
+    await handleAppointmentUpdate(rescheduleModalAppointment.id, {
       appointmentDate: newDate,
       appointmentTime: newTime,
       status: 'Pending',
     })
+    closeRescheduleModal()
   }
 
   const openAssignDoctorModal = (appointment) => {
@@ -810,58 +837,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     closeAssignDoctorModal()
   }
 
-  const openWalkInModal = () => {
-    const now = new Date()
-    setWalkInForm({
-      petName: '',
-      ownerName: '',
-      doctorName: doctors[0]?.name || '',
-      appointmentDate: toDateInputValue(now),
-      appointmentTime: toTimeInputValue(now),
-      reason: 'Walk-in consultation',
-    })
-    setIsWalkInModalOpen(true)
-  }
-
-  const closeWalkInModal = () => {
-    setIsWalkInModalOpen(false)
-  }
-
-  const handleWalkInFieldChange = (event) => {
-    const { name, value } = event.currentTarget
-    setWalkInForm((current) => ({ ...current, [name]: value }))
-  }
-
-  const handleAddWalkIn = async (event) => {
-    event.preventDefault()
-    const payload = {
-      ownerName: String(walkInForm.ownerName || '').trim(),
-      petName: String(walkInForm.petName || '').trim(),
-      doctorName: String(walkInForm.doctorName || '').trim(),
-      appointmentDate: String(walkInForm.appointmentDate || '').trim(),
-      appointmentTime: String(walkInForm.appointmentTime || '').trim(),
-      reason: String(walkInForm.reason || '').trim(),
-    }
-
-    if (!payload.petName || !payload.doctorName || !payload.appointmentDate || !payload.appointmentTime || !payload.reason) {
-      setAppointmentError('Pet name, doctor, date, time, and reason are required.')
-      return
-    }
-
-    try {
-      setAppointmentError('')
-      setAppointmentStatusMessage('')
-      const response = await createAppointment(payload)
-      const created = response?.appointment
-      if (created) {
-        setAppointments((currentItems) => [created, ...currentItems])
-      }
-      setAppointmentStatusMessage('Walk-in appointment added.')
-      closeWalkInModal()
-    } catch (requestError) {
-      setAppointmentError(requestError.message)
-    }
-  }
 
   const handleRegisterOwner = async (event) => {
     event.preventDefault()
@@ -1339,7 +1314,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     const payload = {
       paymentMethod: String(formData.get('paymentMethod') || '').trim(),
       paymentDate: String(formData.get('paymentDate') || '').trim(),
-      referenceNumber: String(formData.get('referenceNumber') || '').trim(),
       paymentStatus: String(formData.get('paymentStatus') || 'Pending').trim(),
     }
 
@@ -1444,7 +1418,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
           <div class="label">Status</div><div class="value">${escapeHtml(receipt.paymentStatus || '-')}</div>
           <div class="label">Method</div><div class="value">${escapeHtml(receipt.paymentMethod || '-')}</div>
           <div class="label">Date</div><div class="value">${escapeHtml(receipt.paymentDate || '-')}</div>
-          <div class="label">Reference</div><div class="value">${escapeHtml(receipt.referenceNumber || '-')}</div>
           <div class="label">Processed By</div><div class="value">${escapeHtml(staffName)}</div>
         </div>
       </div>
@@ -1575,9 +1548,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
       return
     }
     setActivePage(action.targetPage)
-    if (action.title === 'Add Walk-in') {
-      openWalkInModal()
-    }
   }
 
   return (
@@ -1680,15 +1650,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
             </div>
           ) : activePage === 'Appointment Management' ? (
             <div className="st-appointments">
-              <article className="st-card st-quick-card">
-                <h3>Add Walk-in Appointment</h3>
-                <button type="button" className="st-plain-btn" onClick={openWalkInModal}>
-                  Add Walk-in Appointment
-                </button>
-                {appointmentStatusMessage ? <p className="st-form-success">{appointmentStatusMessage}</p> : null}
-                {appointmentError ? <p className="st-form-error">{appointmentError}</p> : null}
-              </article>
-
               <article className="st-card">
                 <h3>Filters</h3>
                 <div className="st-filters">
@@ -1744,7 +1705,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                         <button type="button" onClick={() => handleAppointmentUpdate(item.id, { status: 'Cancelled' })}>
                           Cancel
                         </button>
-                        <button type="button" onClick={() => handleRescheduleAppointment(item)}>
+                        <button type="button" onClick={() => openRescheduleModal(item)}>
                           Reschedule
                         </button>
                         <button type="button" onClick={() => openAssignDoctorModal(item)}>
@@ -1821,9 +1782,10 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                     filteredOwners.map((owner) => (
                     <li key={owner.id}>
                       <div>
-                        <strong>
-                          {owner.id} - {owner.name}
+                        <strong className="st-appointment-ref" title={owner.id}>
+                          {formatOwnerReference(owner.id)} - {owner.name}
                         </strong>
+                        <p className="st-appointment-id">{owner.id}</p>
                         <p>
                           {owner.email}
                         </p>
@@ -1925,9 +1887,10 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                     filteredPets.map((pet) => (
                     <li key={pet.id}>
                       <div>
-                        <strong>
-                          {pet.id} - {pet.name}
+                        <strong className="st-appointment-ref" title={pet.id}>
+                          {formatPetReference(pet.id)} - {pet.name}
                         </strong>
+                        <p className="st-appointment-id">{pet.id}</p>
                         <p>Owner: {pet.ownerName || pet.ownerId || '-'}</p>
                         <p>Breed: {pet.breed}</p>
                         <p>Age: {pet.age}</p>
@@ -2124,11 +2087,8 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                 <div className="st-profile-meta">
                   <h3>{profile?.name || 'Staff User'}</h3>
                   <p>{profile?.role || 'staff'}</p>
-                  <p>Employee ID: {profile?.id || '-'}</p>
-                </div>
-                <div className="st-profile-badges">
-                  <span>On Duty</span>
-                  <span>Morning Shift</span>
+                  <p>Employee ID: {formatEmployeeReference(profile?.id)}</p>
+                  <p className="st-appointment-id">{profile?.id || '-'}</p>
                 </div>
               </article>
 
@@ -2173,50 +2133,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                 </form>
                 {profileStatus ? <p className="st-form-success">{profileStatus}</p> : null}
                 {profileError ? <p className="st-form-error">{profileError}</p> : null}
-              </article>
-
-              <article className="st-card">
-                <h3>Notification Preferences</h3>
-                <p>Choose which updates you want to receive.</p>
-                <form className="st-toggle-list" onSubmit={handleStaffNotificationSubmit}>
-                  <label>
-                    <input
-                      name="appointmentRequestAlerts"
-                      type="checkbox"
-                      defaultChecked={Boolean(profile?.notificationPreferences?.appointmentRequestAlerts)}
-                    />
-                    Appointment request alerts
-                  </label>
-                  <label>
-                    <input
-                      name="paymentConfirmationAlerts"
-                      type="checkbox"
-                      defaultChecked={Boolean(profile?.notificationPreferences?.paymentConfirmationAlerts)}
-                    />
-                    Payment confirmation alerts
-                  </label>
-                  <label>
-                    <input
-                      name="doctorScheduleChanges"
-                      type="checkbox"
-                      defaultChecked={Boolean(profile?.notificationPreferences?.doctorScheduleChanges)}
-                    />
-                    Doctor schedule changes
-                  </label>
-                  <label>
-                    <input
-                      name="weeklyPerformanceSummary"
-                      type="checkbox"
-                      defaultChecked={Boolean(profile?.notificationPreferences?.weeklyPerformanceSummary)}
-                    />
-                    Weekly performance summary
-                  </label>
-                  <button type="submit" className="st-plain-btn" disabled={isSavingStaffNotifications}>
-                    {isSavingStaffNotifications ? 'Saving...' : 'Save Notification Preferences'}
-                  </button>
-                </form>
-                {staffNotificationStatus ? <p className="st-form-success">{staffNotificationStatus}</p> : null}
-                {staffNotificationError ? <p className="st-form-error">{staffNotificationError}</p> : null}
               </article>
 
               <article className="st-card">
@@ -2353,10 +2269,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                   <label>
                     Payment Date
                     <input name="paymentDate" type="date" defaultValue={selectedBillingRecord?.paymentDate || ''} />
-                  </label>
-                  <label>
-                    Reference Number
-                    <input name="referenceNumber" type="text" placeholder="Optional reference ID" defaultValue={selectedBillingRecord?.referenceNumber || ''} />
                   </label>
                   <label>
                     Payment Status
@@ -2546,49 +2458,28 @@ export default function StaffDashboard({ currentUser, onLogout }) {
           )}
         </section>
       </section>
-      {isWalkInModalOpen ? (
-        <div className="st-modal-overlay" role="dialog" aria-modal="true" aria-label="Add walk-in appointment">
+      {rescheduleModalAppointment ? (
+        <div className="st-modal-overlay" role="dialog" aria-modal="true" aria-label="Reschedule appointment">
           <div className="st-modal">
-            <h3>Add Walk-in Appointment</h3>
-            <form className="st-filters" onSubmit={handleAddWalkIn}>
+            <h3>Reschedule Appointment</h3>
+            <form className="st-profile-form" onSubmit={handleRescheduleAppointment}>
+              <p>
+                <strong>Appointment:</strong> {formatAppointmentReference(rescheduleModalAppointment.id)}
+              </p>
+              <p className="st-appointment-id">Full ID: {rescheduleModalAppointment.id}</p>
               <label>
-                Pet Name
-                <input name="petName" type="text" value={walkInForm.petName} onChange={handleWalkInFieldChange} required />
+                New Date
+                <input type="date" value={rescheduleModalDate} onChange={(event) => setRescheduleModalDate(event.target.value)} required />
               </label>
               <label>
-                Owner Name (Optional)
-                <input name="ownerName" type="text" value={walkInForm.ownerName} onChange={handleWalkInFieldChange} />
-              </label>
-              <label>
-                Doctor
-                <select name="doctorName" value={walkInForm.doctorName} onChange={handleWalkInFieldChange} required>
-                  <option value="" disabled>
-                    Select doctor
-                  </option>
-                  {doctors.map((doctor) => (
-                    <option key={doctor.id} value={doctor.name}>
-                      {doctor.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Date
-                <input name="appointmentDate" type="date" value={walkInForm.appointmentDate} onChange={handleWalkInFieldChange} required />
-              </label>
-              <label>
-                Time
-                <input name="appointmentTime" type="time" value={walkInForm.appointmentTime} onChange={handleWalkInFieldChange} required />
-              </label>
-              <label className="st-profile-full">
-                Reason
-                <input name="reason" type="text" value={walkInForm.reason} onChange={handleWalkInFieldChange} required />
+                New Time
+                <input type="time" value={rescheduleModalTime} onChange={(event) => setRescheduleModalTime(event.target.value)} required />
               </label>
               <div className="st-billing-actions">
                 <button type="submit" className="st-plain-btn">
-                  Save Walk-in Appointment
+                  Save
                 </button>
-                <button type="button" className="st-plain-btn st-danger-btn" onClick={closeWalkInModal}>
+                <button type="button" className="st-plain-btn st-danger-btn" onClick={closeRescheduleModal}>
                   Cancel
                 </button>
               </div>
@@ -2714,9 +2605,10 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                     {ownerModalPets.map((pet) => (
                       <li key={pet.id}>
                         <div>
-                          <strong>
-                            {pet.id} - {pet.name}
+                          <strong className="st-appointment-ref" title={pet.id}>
+                            {formatPetReference(pet.id)} - {pet.name}
                           </strong>
+                          <p className="st-appointment-id">{pet.id}</p>
                           <p>Breed: {pet.breed || '-'}</p>
                           <p>Age: {pet.age || '-'}</p>
                           <p>Weight: {pet.weight || '-'}</p>
