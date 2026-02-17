@@ -118,6 +118,12 @@ export function listUsers(query) {
   return request(withQuery('/api/users', query))
 }
 
+export function deleteUserById(userId) {
+  return request(`/api/users/${userId}`, {
+    method: 'DELETE',
+  })
+}
+
 export function createConsultation(body) {
   return request('/api/consultations', {
     method: 'POST',

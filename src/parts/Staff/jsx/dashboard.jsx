@@ -10,6 +10,7 @@ import {
   createPet,
   deleteDoctorScheduleSlot,
   deletePetById,
+  deleteUserById,
   getBillingReceiptById,
   getDoctorSchedule,
   getUserProfile,
@@ -872,7 +873,12 @@ export default function StaffDashboard({ currentUser, onLogout }) {
       setOwnerStatusMessage('Pet owner registered successfully.')
       event.currentTarget.reset()
     } catch (requestError) {
-      setOwnerError(requestError.message)
+      const message = String(requestError?.message || 'Request failed.')
+      if (message.toLowerCase().includes('route not found')) {
+        setOwnerError('Remove endpoint not loaded on backend. Please restart backend server and try again.')
+      } else {
+        setOwnerError(message)
+      }
     }
   }
 
@@ -910,6 +916,28 @@ export default function StaffDashboard({ currentUser, onLogout }) {
       setOwnerError(requestError.message)
     } finally {
       setIsLoadingOwnerModalPets(false)
+    }
+  }
+
+  const handleRemoveOwner = async (owner) => {
+    if (!owner?.id) {
+      return
+    }
+
+    try {
+      setOwnerError('')
+      setOwnerStatusMessage('')
+      await deleteUserById(owner.id)
+      const data = await loadOwnerManagementData()
+      setOwners(data.owners)
+      setOwnerPetCounts(data.petCounts)
+      setPets((current) => current.filter((pet) => String(pet.ownerId || '') !== owner.id))
+      if (activeOwner?.id === owner.id) {
+        closeOwnerModal()
+      }
+      setOwnerStatusMessage('Pet owner removed successfully.')
+    } catch (requestError) {
+      setOwnerError(requestError.message)
     }
   }
 
@@ -1061,10 +1089,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
 
   const handleViewPetHistory = (pet) => {
     setPetHistoryModalPet(pet)
-  }
-
-  const handleUploadPetDocument = (pet) => {
-    window.alert(`Document upload for ${pet.name} is UI-only right now. Backend storage is not configured yet.`)
   }
 
   const handleStaffNotificationSubmit = async (event) => {
@@ -1433,7 +1457,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
   const openReceiptWindow = (receipt, shouldPrint = false) => {
     const receiptWindow = window.open('', '_blank', 'noopener,noreferrer,width=760,height=920')
     if (!receiptWindow) {
-      setBillingError('Unable to open receipt window. Please allow pop-ups for this site.')
       return
     }
 
@@ -1804,6 +1827,9 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                         <button type="button" onClick={() => handleViewOwnerPets(owner)}>
                           View Owner’s Pets
                         </button>
+                        <button type="button" onClick={() => handleRemoveOwner(owner)}>
+                          Remove Owner
+                        </button>
                       </div>
                     </li>
                     ))
@@ -1904,9 +1930,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                         </button>
                         <button type="button" onClick={() => openPetVaccinationModal(pet)}>
                           Update Vaccination Date
-                        </button>
-                        <button type="button" onClick={() => handleUploadPetDocument(pet)}>
-                          Upload Documents
                         </button>
                         <button type="button" onClick={() => handleViewPetHistory(pet)}>
                           View Pet History
@@ -2275,7 +2298,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                     <select name="paymentStatus" defaultValue={selectedBillingRecord?.paymentStatus || 'Paid'}>
                       <option>Paid</option>
                       <option>Pending</option>
-                      <option>Failed</option>
                     </select>
                   </label>
                 </div>
@@ -2313,9 +2335,6 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                       <span>{item.totalAmountDisplay || formatBaht(item.totalAmount)}</span>
                       <span>{item.paymentMethod || '-'}</span>
                       <span className={`st-history-status st-history-${item.paymentStatus.toLowerCase()}`}>{item.paymentStatus}</span>
-                      <button type="button" onClick={() => handleViewReceipt(item.id)}>
-                        View
-                      </button>
                     </li>
                     ))
                   ) : (
@@ -2327,6 +2346,7 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                   )}
                 </ul>
               </article>
+
             </div>
           ) : activePage === 'Reports & Analytics' ? (
             <div className="st-reports-layout">
