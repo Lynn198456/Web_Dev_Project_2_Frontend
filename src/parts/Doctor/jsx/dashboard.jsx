@@ -1384,37 +1384,8 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
             </div>
           ) : activePage === "Doctor Schedule Page" ? (
             <div className="dr-schedule">
-              <form className="dr-card" onSubmit={handleAddAvailableSlot}>
-                <h3>Set Available Time Slots</h3>
-                <div className="dr-entry-fields">
-                  <input name="date" type="date" required />
-                  <input name="startTime" type="time" required />
-                  <input name="endTime" type="time" required />
-                </div>
-                <button type="submit" disabled={isSavingSchedule}>
-                  {isSavingSchedule ? "Saving..." : "Add Slot"}
-                </button>
-                <ul className="dr-simple-list">
-                  {(doctorSchedule?.availableSlots || []).map((slot) => (
-                    <li key={slot.id}>
-                      <span>
-                        {slot.date} | {slot.startTime} - {slot.endTime}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleDeleteScheduleSlot("available", slot.id)
-                        }
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </form>
-
               <form className="dr-card" onSubmit={handleAddBlockedSlot}>
-                <h3>Block Time (Busy)</h3>
+                <h3>Busy Time</h3>
                 <div className="dr-entry-fields">
                   <input name="date" type="date" required />
                   <input name="startTime" type="time" required />
@@ -1426,7 +1397,7 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
                   />
                 </div>
                 <button type="submit" disabled={isSavingSchedule}>
-                  {isSavingSchedule ? "Saving..." : "Block Time"}
+                  {isSavingSchedule ? "Saving..." : "Save Busy Time"}
                 </button>
                 <ul className="dr-simple-list">
                   {(doctorSchedule?.blockedSlots || []).map((slot) => (
