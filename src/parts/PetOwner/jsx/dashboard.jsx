@@ -31,6 +31,30 @@ const PAGE_DESCRIPTIONS = {
   Profile: 'Update owner details, preferences, and account settings.',
 }
 
+const PET_BREED_OPTIONS = [
+  'Mixed Breed',
+  'Labrador Retriever',
+  'Golden Retriever',
+  'German Shepherd',
+  'Poodle',
+  'Shih Tzu',
+  'Pomeranian',
+  'Bulldog',
+  'Beagle',
+  'Rottweiler',
+  'Siberian Husky',
+  'Chihuahua',
+  'Persian Cat',
+  'Siamese Cat',
+  'Maine Coon',
+  'British Shorthair',
+  'Bengal Cat',
+  'Ragdoll',
+  'Sphynx',
+  'Scottish Fold',
+  'Other',
+]
+
 function toTimestamp(dateValue, timeValue = '00:00') {
   if (!dateValue) {
     return Number.NaN
@@ -372,6 +396,8 @@ function MyPetsPage({ pets, onAddNewPet, onDeletePet, onUpdatePet, onUploadPetPh
 function AddPetPage({ onBackToPets, onSavePet }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [selectedBreed, setSelectedBreed] = useState(PET_BREED_OPTIONS[0])
+  const [customBreed, setCustomBreed] = useState('')
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -379,9 +405,11 @@ function AddPetPage({ onBackToPets, onSavePet }) {
       return
     }
     const formData = new FormData(event.currentTarget)
+    const breedValue =
+      selectedBreed === 'Other' ? String(customBreed || '').trim() : String(formData.get('breed') || '').trim()
     const newPet = {
       name: String(formData.get('petName') || '').trim(),
-      breed: String(formData.get('breed') || '').trim(),
+      breed: breedValue,
       age: String(formData.get('age') || '').trim(),
       weight: String(formData.get('weight') || '').trim(),
       vaccinationStatus: String(formData.get('vaccinationStatus') || '').trim(),
@@ -396,6 +424,8 @@ function AddPetPage({ onBackToPets, onSavePet }) {
       setErrorMessage('')
       await onSavePet(newPet)
       event.currentTarget.reset()
+      setSelectedBreed(PET_BREED_OPTIONS[0])
+      setCustomBreed('')
     } catch (requestError) {
       setErrorMessage(requestError.message)
     } finally {
@@ -418,8 +448,32 @@ function AddPetPage({ onBackToPets, onSavePet }) {
           </label>
           <label>
             Breed
-            <input name="breed" type="text" placeholder="Enter breed" required />
+            <select
+              name="breed"
+              value={selectedBreed}
+              onChange={(event) => setSelectedBreed(event.target.value)}
+              required
+            >
+              {PET_BREED_OPTIONS.map((breed) => (
+                <option key={breed} value={breed}>
+                  {breed}
+                </option>
+              ))}
+            </select>
           </label>
+          {selectedBreed === 'Other' ? (
+            <label>
+              Custom Breed
+              <input
+                name="customBreed"
+                type="text"
+                placeholder="Enter breed"
+                value={customBreed}
+                onChange={(event) => setCustomBreed(event.target.value)}
+                required
+              />
+            </label>
+          ) : null}
           <label>
             Age
             <input name="age" type="text" placeholder="e.g. 2 years" required />
@@ -593,11 +647,15 @@ function BookAppointmentPage({ pets, doctors, ownerId, ownerName, onViewHistory,
       return
     }
 
+    const selectedDoctorId = String(formData.get('doctorId') || '').trim()
+    const selectedDoctor = doctors.find((doctor) => String(doctor.id || '') === selectedDoctorId)
+
     const body = {
       ownerId: String(ownerId || '').trim(),
       ownerName: String(ownerName || '').trim(),
+      doctorId: selectedDoctorId,
       petName: String(formData.get('petName') || '').trim(),
-      doctorName: String(formData.get('doctorName') || '').trim(),
+      doctorName: String(selectedDoctor?.name || '').trim(),
       appointmentDate: String(formData.get('appointmentDate') || '').trim(),
       appointmentTime: String(formData.get('appointmentTime') || '').trim(),
       reason: String(formData.get('reason') || '').trim(),
@@ -655,9 +713,9 @@ function BookAppointmentPage({ pets, doctors, ownerId, ownerName, onViewHistory,
           </label>
           <label>
             Doctor
-            <select name="doctorName" defaultValue={doctors[0]?.name || ''} required disabled={isSubmitting || !doctors.length}>
+            <select name="doctorId" defaultValue={doctors[0]?.id || ''} required disabled={isSubmitting || !doctors.length}>
               {doctors.map((doctor) => (
-                <option key={doctor.id} value={doctor.name}>
+                <option key={doctor.id} value={doctor.id}>
                   {doctor.name}
                 </option>
               ))}
