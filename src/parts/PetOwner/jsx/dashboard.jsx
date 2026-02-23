@@ -1386,7 +1386,16 @@ export default function PetOwnerDashboard({ role, currentUser, onLogout }) {
   }
 
   const handleUpdatePet = async (petId, updates) => {
-    const response = await updatePetById(petId, updates, { userId: currentUser?.id || '' })
+    const response = await updatePetById(
+      petId,
+      {
+        ...updates,
+        actorId: currentUser?.id || '',
+        actorName: currentUser?.name || '',
+        actorRole: 'pet-owner',
+      },
+      { userId: currentUser?.id || '' }
+    )
     const updatedPet = response?.pet
     if (updatedPet) {
       setPets((currentPets) => currentPets.map((pet) => (pet.id === updatedPet.id ? updatedPet : pet)))

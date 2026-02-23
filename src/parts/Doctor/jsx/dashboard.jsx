@@ -614,6 +614,9 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
       await createConsultation(consultationPayload);
       const response = await updateAppointmentById(selectedConsultation.id, {
         status: mappedStatus,
+        actorId: profile?.id || currentUser?.id || "",
+        actorName: profile?.name || currentUser?.name || "Doctor",
+        actorRole: "doctor",
       });
       const updated = response?.appointment;
       if (updated) {

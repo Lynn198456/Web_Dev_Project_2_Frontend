@@ -770,7 +770,12 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     try {
       setAppointmentError('')
       setAppointmentStatusMessage('')
-      const response = await updateAppointmentById(appointmentId, updates)
+      const response = await updateAppointmentById(appointmentId, {
+        ...updates,
+        actorId: profile?.id || currentUser?.id || '',
+        actorName: profile?.name || currentUser?.name || 'Staff',
+        actorRole: 'staff',
+      })
       const updated = response?.appointment
       if (updated) {
         setAppointments((currentItems) => currentItems.map((item) => (item.id === updated.id ? updated : item)))
@@ -1059,7 +1064,12 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     try {
       setPetRecordError('')
       setPetRecordStatusMessage('')
-      const response = await updatePetById(petEditModalPet.id, payload)
+      const response = await updatePetById(petEditModalPet.id, {
+        ...payload,
+        actorId: profile?.id || currentUser?.id || '',
+        actorName: profile?.name || currentUser?.name || 'Staff',
+        actorRole: 'staff',
+      })
       const updated = response?.pet
       if (updated) {
         setPets((current) => current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)))
