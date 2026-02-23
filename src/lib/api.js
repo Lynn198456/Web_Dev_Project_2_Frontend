@@ -227,3 +227,7 @@ export function createMedicalRecord(body) {
     body: JSON.stringify(body),
   })
 }
+
+export function listAuditLogs(query) {
+  return request(withQuery('/api/audit-logs', query))
+}

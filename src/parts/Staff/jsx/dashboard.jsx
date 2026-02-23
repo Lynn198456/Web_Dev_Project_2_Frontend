@@ -17,6 +17,7 @@ import {
   listBillingRecords,
   listReportSnapshots,
   listAppointments,
+  listAuditLogs,
   listPets,
   getReportsAnalytics,
   listUsers,
@@ -35,6 +36,7 @@ const STAFF_PAGES = [
   'Appointment Management',
   'Pet Owner Management',
   'Pet Records',
+  'Activity Log',
   'Billing & Payments',
   'Profile',
 ]
@@ -69,6 +71,15 @@ const STAFF_CONTENT = {
       { title: 'Pet Profile Updates', text: 'Edit breed, age, weight, and vaccine details.' },
       { title: 'Record Validation', text: 'Resolve duplicate pet records and missing fields.' },
       { title: 'Medical Snapshot', text: 'Quick view of recent diagnosis and vaccine status.' },
+    ],
+  },
+  'Activity Log': {
+    subtitle: 'Review who changed records and when across appointments, pets, and prescriptions.',
+    cards: [
+      { title: 'Appointment Status Changes', text: 'Track confirmations, cancellations, and completions.' },
+      { title: 'Pet Record Edits', text: 'See which user updated pet details and fields changed.' },
+      { title: 'Prescription Additions', text: 'Review when prescriptions were added by doctors.' },
+      { title: 'Traceability', text: 'Use timestamps and actors for accountability and debugging.' },
     ],
   },
   'Billing & Payments': {
@@ -236,6 +247,13 @@ export default function StaffDashboard({ currentUser, onLogout }) {
   const [isLoadingReports, setIsLoadingReports] = useState(false)
   const [reportError, setReportError] = useState('')
   const [reportStatusMessage, setReportStatusMessage] = useState('')
+  const [activityLogs, setActivityLogs] = useState([])
+  const [isLoadingActivityLogs, setIsLoadingActivityLogs] = useState(false)
+  const [activityLogError, setActivityLogError] = useState('')
+  const [activityLogStatusMessage, setActivityLogStatusMessage] = useState('')
+  const [activityLogActionFilter, setActivityLogActionFilter] = useState('All')
+  const [activityLogEntityFilter, setActivityLogEntityFilter] = useState('All')
+  const [activityLogSearch, setActivityLogSearch] = useState('')
   const [profile, setProfile] = useState(currentUser || null)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [profileStatus, setProfileStatus] = useState('')
@@ -326,6 +344,26 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     { title: 'Collected', value: formatBaht(totalCollected) },
     { title: 'Pending', value: formatBaht(totalPending) },
   ]
+  const filteredActivityLogs = activityLogs.filter((item) => {
+    const actionMatch = activityLogActionFilter === 'All' || item.actionType === activityLogActionFilter
+    const entityMatch = activityLogEntityFilter === 'All' || item.entityType === activityLogEntityFilter
+    const query = activityLogSearch.trim().toLowerCase()
+    const searchMatch =
+      !query ||
+      String(item.actorName || '')
+        .toLowerCase()
+        .includes(query) ||
+      String(item.entityLabel || '')
+        .toLowerCase()
+        .includes(query) ||
+      String(item.actionType || '')
+        .toLowerCase()
+        .includes(query) ||
+      String(item.entityType || '')
+        .toLowerCase()
+        .includes(query)
+    return actionMatch && entityMatch && searchMatch
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -373,6 +411,16 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     return Array.isArray(response?.snapshots) ? response.snapshots : []
   }
 
+  const loadActivityLogsData = async (overrides = {}) => {
+    const query = {
+      actionType: overrides.actionType ?? (activityLogActionFilter === 'All' ? '' : activityLogActionFilter),
+      entityType: overrides.entityType ?? (activityLogEntityFilter === 'All' ? '' : activityLogEntityFilter),
+      limit: overrides.limit ?? 200,
+    }
+    const response = await listAuditLogs(query)
+    return Array.isArray(response?.logs) ? response.logs : []
+  }
+
   useEffect(() => {
     let cancelled = false
 
@@ -403,6 +451,39 @@ export default function StaffDashboard({ currentUser, onLogout }) {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadActivityLogsPage = async () => {
+      if (activePage !== 'Activity Log') {
+        return
+      }
+      try {
+        setIsLoadingActivityLogs(true)
+        setActivityLogError('')
+        setActivityLogStatusMessage('')
+        const logs = await loadActivityLogsData()
+        if (!cancelled) {
+          setActivityLogs(logs)
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setActivityLogs([])
+          setActivityLogError(requestError.message)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingActivityLogs(false)
+        }
+      }
+    }
+
+    void loadActivityLogsPage()
+    return () => {
+      cancelled = true
+    }
+  }, [activePage, activityLogActionFilter, activityLogEntityFilter])
 
   useEffect(() => {
     let cancelled = false
@@ -1583,6 +1664,21 @@ export default function StaffDashboard({ currentUser, onLogout }) {
     setActivePage(action.targetPage)
   }
 
+  const handleRefreshActivityLogs = async () => {
+    try {
+      setIsLoadingActivityLogs(true)
+      setActivityLogError('')
+      setActivityLogStatusMessage('')
+      const logs = await loadActivityLogsData()
+      setActivityLogs(logs)
+      setActivityLogStatusMessage('Activity log refreshed.')
+    } catch (requestError) {
+      setActivityLogError(requestError.message)
+    } finally {
+      setIsLoadingActivityLogs(false)
+    }
+  }
+
   return (
     <main className="st-screen">
       <section className="st-shell">
@@ -2110,6 +2206,84 @@ export default function StaffDashboard({ currentUser, onLogout }) {
                   )}
                 </ul>
               </form>
+            </div>
+          ) : activePage === 'Activity Log' ? (
+            <div className="st-appointments">
+              <article className="st-card">
+                <h3>Filters</h3>
+                <div className="st-filters">
+                  <label>
+                    Action
+                    <select value={activityLogActionFilter} onChange={(event) => setActivityLogActionFilter(event.target.value)}>
+                      <option value="All">All</option>
+                      <option value="appointment_status_changed">Appointment Status Changed</option>
+                      <option value="pet_record_edited">Pet Record Edited</option>
+                      <option value="prescription_added">Prescription Added</option>
+                    </select>
+                  </label>
+                  <label>
+                    Entity
+                    <select value={activityLogEntityFilter} onChange={(event) => setActivityLogEntityFilter(event.target.value)}>
+                      <option value="All">All</option>
+                      <option value="appointment">Appointment</option>
+                      <option value="pet">Pet</option>
+                      <option value="prescription">Prescription</option>
+                      <option value="consultation">Consultation</option>
+                    </select>
+                  </label>
+                  <label>
+                    Search
+                    <input
+                      type="text"
+                      placeholder="Actor, action, or record..."
+                      value={activityLogSearch}
+                      onChange={(event) => setActivityLogSearch(event.target.value)}
+                    />
+                  </label>
+                  <div className="st-appointment-actions">
+                    <button type="button" onClick={() => void handleRefreshActivityLogs()} disabled={isLoadingActivityLogs}>
+                      {isLoadingActivityLogs ? 'Refreshing...' : 'Refresh Log'}
+                    </button>
+                  </div>
+                </div>
+                {activityLogStatusMessage ? <p className="st-success">{activityLogStatusMessage}</p> : null}
+                {activityLogError ? <p className="st-error">{activityLogError}</p> : null}
+              </article>
+
+              <article className="st-card">
+                <h3>Activity Entries</h3>
+                {!filteredActivityLogs.length ? (
+                  <p>No activity log entries found for the selected filters.</p>
+                ) : (
+                  <ul className="st-appointment-list">
+                    {filteredActivityLogs.map((item) => (
+                      <li key={item.id}>
+                        <div>
+                          <strong>{String(item.actionType || '').replaceAll('_', ' ')}</strong>
+                          <p>{item.entityType} | {item.entityLabel || item.entityId || '-'}</p>
+                          <p>
+                            By {item.actorName || 'Unknown'} ({item.actorRole || 'unknown'}) |{' '}
+                            {new Date(item.eventAt || item.createdAt).toLocaleString('en-US')}
+                          </p>
+                          {item.actionType === 'appointment_status_changed' ? (
+                            <p>
+                              Status: {item.details?.fromStatus || '-'} {'->'} {item.details?.toStatus || '-'}
+                            </p>
+                          ) : null}
+                          {item.actionType === 'pet_record_edited' ? (
+                            <p>Changed: {(item.details?.changedFields || []).join(', ') || '-'}</p>
+                          ) : null}
+                          {item.actionType === 'prescription_added' ? (
+                            <p>
+                              Prescription: {item.details?.medicine || item.details?.prescription || '-'}
+                            </p>
+                          ) : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </article>
             </div>
           ) : activePage === 'Profile' ? (
             <div className="st-profile-layout">
